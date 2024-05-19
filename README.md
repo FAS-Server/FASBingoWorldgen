@@ -25,6 +25,7 @@ World generation datapack for Bingo game.
 
 ### Structure Set
 
+- ancient_city (size & density)
 - buried_treasures
 - desert_pyramids
 - igloos
