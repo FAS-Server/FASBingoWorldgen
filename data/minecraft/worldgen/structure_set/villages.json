@@ -1,4 +1,10 @@
 {
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 10387312,
+    "separation": 8,
+    "spacing": 12
+  },
   "structures": [
     {
       "structure": "minecraft:village_plains",
@@ -20,11 +26,5 @@
       "structure": "minecraft:village_taiga",
       "weight": 1
     }
-  ],
-  "placement": {
-    "salt": 10387312,
-    "spacing": 12,
-    "separation": 8,
-    "type": "minecraft:random_spread"
-  }
+  ]
 }

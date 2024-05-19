@@ -1,13 +1,13 @@
 {
   "placement": {
     "type": "minecraft:random_spread",
-    "salt": 14357619,
-    "separation": 2,
-    "spacing": 8
+    "salt": 20083232,
+    "separation": 8,
+    "spacing": 16
   },
   "structures": [
     {
-      "structure": "minecraft:jungle_pyramid",
+      "structure": "minecraft:ancient_city",
       "weight": 1
     }
   ]

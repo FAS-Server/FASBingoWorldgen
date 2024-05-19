@@ -1,19 +1,21 @@
 {
-  "structures": [
-    {
-      "structure": "minecraft:buried_treasure",
-      "weight": 1
-    }
-  ],
   "placement": {
-    "salt": 0,
+    "type": "minecraft:random_spread",
+    "frequency": 0.03,
+    "frequency_reduction_method": "legacy_type_2",
     "locate_offset": [
       9,
       0,
       9
     ],
-    "spacing": 1,
+    "salt": 0,
     "separation": 0,
-    "type": "minecraft:random_spread"
-  }
+    "spacing": 1
+  },
+  "structures": [
+    {
+      "structure": "minecraft:buried_treasure",
+      "weight": 1
+    }
+  ]
 }
