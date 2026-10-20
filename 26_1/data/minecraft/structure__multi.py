@@ -78,9 +78,9 @@ SPECIAL_FIELD_OVERRIDES = {
 # The values are the vanilla ones, so an entry only restores what scaling would
 # replace.
 # SPECIAL_FIELD_OVERRIDES.update({
-#     STRUCTURE_SET_DIR / 'mineshafts.json': {'frequency': 0.004},
-#     STRUCTURE_SET_DIR / 'ocean_monuments.json': {'spacing': 32, 'separation': 5},
-#     STRUCTURE_SET_DIR / 'nether_fossils.json': {'spacing': 2, 'separation': 1},
+#     # STRUCTURE_SET_DIR / 'mineshafts.json': {'frequency': 0.004},
+#     # STRUCTURE_SET_DIR / 'ocean_monuments.json': {'spacing': 32, 'separation': 5},
+#     # STRUCTURE_SET_DIR / 'nether_fossils.json': {'spacing': 2, 'separation': 1},
 # })
 
 # Structure definitions whose own fields change. Vanilla
