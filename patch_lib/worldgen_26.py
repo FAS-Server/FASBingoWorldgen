@@ -1,7 +1,7 @@
 """Shared implementation of the 26.x worldgen patches.
 
-The layout below is verified against 26.1 and 26.2 (data format 101.1 and
-107.1); re-scan the vanilla files before reusing it on a later version.
+The layout below is verified against 26.1 to 26.3 (data formats 101.1, 107.1 and
+121.0); re-scan the vanilla files before reusing it on a later version.
 
 The 26.x data layout puts every target under `data/minecraft/worldgen/<kind>/`
 and every vanilla file is flattened under `common/vanilla/<version>/` as
@@ -20,6 +20,38 @@ import typing as ty
 from . import dispatch
 
 WORLDGEN_DIR = 'worldgen'
+
+# Density function spellings of the noise node. 26.3 renamed `shifted_noise` to
+# `noise`; the node keeps its `xz_scale`, so both are scaled the same way.
+NOISE_TYPES = ('minecraft:noise', 'minecraft:shifted_noise')
+
+# Cache wrappers around a noise node. 26.3 renamed `flat_cache` to `cache` and
+# its `argument` key to `input`.
+CACHE_TYPES = ('minecraft:cache', 'minecraft:flat_cache')
+
+
+def _noise_node(relative: Path, json_content: ty.Dict) -> ty.Dict:
+    '''
+    Returns the noise node of a density function.
+
+    Some functions are the noise node itself (`overworld/temperature.json` from
+    26.3 on), others wrap it in a cache whose key is `input` from 26.3 and
+    `argument` before it.
+    '''
+    node = json_content
+    if node.get('type') in CACHE_TYPES:
+        keys = [key for key in ('input', 'argument') if key in node]
+        if len(keys) != 1:
+            raise TypeError(
+                f'Expected one of input/argument in {relative}, got {sorted(node)}'
+            )
+        node = node[keys[0]]
+    if node.get('type') not in NOISE_TYPES:
+        raise TypeError(
+            f'Expected a noise density function in {relative}, '
+            f'got {node.get("type")!r}'
+        )
+    return node
 
 
 def source_name(target: Path) -> str:
@@ -110,9 +142,9 @@ def overworld_climate(
         router = json_content['noise_router']
         for field in fields:
             noise = router[field]
-            if noise.get('type') != 'minecraft:shifted_noise':
+            if noise.get('type') not in NOISE_TYPES:
                 raise TypeError(
-                    f'Expected an inlined shifted_noise in {relative} {field}, '
+                    f'Expected an inlined noise in {relative} {field}, '
                     f'got {noise.get("type")!r}'
                 )
             noise['xz_scale'] = xz_scale
@@ -146,12 +178,70 @@ def nether_climate(
         router = json_content['noise_router']
         for field in fields:
             noise = router[field]
-            if noise.get('type') != 'minecraft:shifted_noise':
+            if noise.get('type') not in NOISE_TYPES:
                 raise TypeError(
-                    f'Expected an inlined shifted_noise in {relative} {field}, '
+                    f'Expected an inlined noise in {relative} {field}, '
                     f'got {noise.get("type")!r}'
                 )
             noise['xz_scale'] = xz_scale
+        return json_content
+
+    return patch
+
+
+def noise_frequency(*, xz_scale: float) -> dispatch.Patcher:
+    '''
+    Patcher for a density function whose noise node carries the frequency.
+
+    The wrapper, if any, only caches; the noise node inside is what the biome
+    source and the terrain sample. 26.3 moved the two climate fields
+    (`overworld/temperature.json`, `overworld/vegetation.json`) out of
+    `noise_router` into files of their own, and this patcher scales them there.
+    '''
+    def patch(relative: Path, json_content: ty.Dict) -> ty.Dict:
+        _noise_node(relative, json_content)['xz_scale'] = xz_scale
+        return json_content
+
+    return patch
+
+
+def relief_positive(scale: float) -> dispatch.Patcher:
+    '''Patcher for `overworld/offset.json`: scales the positive leaves only.'''
+    def mapping(value: float) -> ty.Tuple[float, float]:
+        if value > 0.0:
+            return value * scale, scale
+        return value, 1.0
+
+    def patch(relative: Path, json_content: ty.Dict) -> ty.Dict:
+        if _map_all_splines(json_content, mapping) == 0:
+            raise KeyError(f'No spline to map in {relative}')
+        return json_content
+
+    return patch
+
+
+def relief_above_one(scale: float) -> dispatch.Patcher:
+    '''Patcher for `overworld/factor.json`: scales the leaves above 1.0 only.'''
+    def mapping(value: float) -> ty.Tuple[float, float]:
+        if value > 1.0:
+            return 1.0 + (value - 1.0) * scale, scale
+        return value, 1.0
+
+    def patch(relative: Path, json_content: ty.Dict) -> ty.Dict:
+        if _map_all_splines(json_content, mapping) == 0:
+            raise KeyError(f'No spline to map in {relative}')
+        return json_content
+
+    return patch
+
+
+def relief_scale(scale: float) -> dispatch.Patcher:
+    '''Patcher for `overworld/jaggedness.json`: scales every spline leaf.'''
+    def patch(relative: Path, json_content: ty.Dict) -> ty.Dict:
+        # Scaling the amplitude lowers the spikes smoothly; clamping the density
+        # instead would shave them flat.
+        if _scale_all_splines(json_content, scale) == 0:
+            raise KeyError(f'No spline to scale in {relative}')
         return json_content
 
     return patch
@@ -166,6 +256,7 @@ def terrain(
         factor: Path,
         jaggedness: Path,
         density_functions: ty.Iterable[Path],
+        climate_functions: ty.Iterable[Path] = (),
         xz_scale_overworld: float,
         inline_climate_fields: ty.Iterable[str],
         xz_scale_nether: float,
@@ -180,10 +271,16 @@ def terrain(
     Builds the terrain patch: climate frequency, relief splines and the
     underground depth axis.
 
+    `density_functions` are the named functions the biome source and the terrain
+    share; `climate_functions` are climate fields that a later version moved
+    out of `noise_router` into files of their own, so they are scaled the same
+    way instead of being patched inside the settings file.
+
     A relief parameter of 1.0 drops its file from the pack instead of emitting a
     copy identical to vanilla, so it also decides whether the file is a source.
     '''
     density_functions = tuple(density_functions)
+    climate_functions = tuple(climate_functions)
 
     targets = [overworld_settings, nether_settings]
     if relief_highland != 1.0:
@@ -193,6 +290,7 @@ def terrain(
     if relief_jagged != 1.0:
         targets.append(jaggedness)
     targets.extend(density_functions)
+    targets.extend(climate_functions)
 
     patch_overworld = overworld_climate(
         inline_climate_fields=inline_climate_fields,
@@ -203,55 +301,20 @@ def terrain(
         climate_fields=nether_climate_fields,
         xz_scale=xz_scale_nether,
     )
-
-    def patch_offset(relative: Path, json_content: ty.Dict) -> ty.Dict:
-        def mapping(value: float) -> ty.Tuple[float, float]:
-            if value > 0.0:
-                return value * relief_highland, relief_highland
-            return value, 1.0
-
-        if _map_all_splines(json_content, mapping) == 0:
-            raise KeyError(f'No spline to map in {relative}')
-        return json_content
-
-    def patch_factor(relative: Path, json_content: ty.Dict) -> ty.Dict:
-        def mapping(value: float) -> ty.Tuple[float, float]:
-            if value > 1.0:
-                return 1.0 + (value - 1.0) * relief_factor, relief_factor
-            return value, 1.0
-
-        if _map_all_splines(json_content, mapping) == 0:
-            raise KeyError(f'No spline to map in {relative}')
-        return json_content
-
-    def patch_jaggedness(relative: Path, json_content: ty.Dict) -> ty.Dict:
-        # Scaling the amplitude lowers the spikes smoothly; clamping the density
-        # instead would shave them flat.
-        if _scale_all_splines(json_content, relief_jagged) == 0:
-            raise KeyError(f'No spline to scale in {relative}')
-        return json_content
-
-    def patch_terrain_noise(relative: Path, json_content: ty.Dict) -> ty.Dict:
-        # flat_cache only caches; the shifted_noise inside carries the frequency.
-        noise = json_content['argument']
-        if noise.get('type') != 'minecraft:shifted_noise':
-            raise TypeError(
-                f'Unexpected density function in {relative}: {noise.get("type")!r}'
-            )
-        noise['xz_scale'] = xz_scale_overworld
-        return json_content
+    patch_noise = noise_frequency(xz_scale=xz_scale_overworld)
 
     patchers: ty.Dict[Path, dispatch.Patcher] = {
         overworld_settings: patch_overworld,
         nether_settings: patch_nether,
     }
     if relief_highland != 1.0:
-        patchers[offset] = patch_offset
+        patchers[offset] = relief_positive(relief_highland)
     if relief_factor != 1.0:
-        patchers[factor] = patch_factor
+        patchers[factor] = relief_above_one(relief_factor)
     if relief_jagged != 1.0:
-        patchers[jaggedness] = patch_jaggedness
-    patchers.update({target: patch_terrain_noise for target in density_functions})
+        patchers[jaggedness] = relief_scale(relief_jagged)
+    patchers.update({target: patch_noise for target in density_functions})
+    patchers.update({target: patch_noise for target in climate_functions})
 
     return dispatch.make(_sources(vanilla_dir, targets, source_overrides), patchers)
 

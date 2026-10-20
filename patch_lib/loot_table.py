@@ -28,9 +28,28 @@ def _entry(relative: Path, json_content: ty.Dict, item: str) -> ty.Dict:
 
 
 def _function(relative: Path, entry: ty.Dict, function: str, item: str) -> ty.Dict:
+    '''
+    Returns the one operation named `function` on an entry.
+
+    26.1 and 26.2 spell the operations as a `functions` list whose entries are
+    named by `function`; 26.3 renames the field to `modifier`, allows a single
+    object instead of a list, and names the operation by `type`.
+    '''
+    if 'modifier' in entry:
+        modifier = entry['modifier']
+        if isinstance(modifier, dict):
+            operations = [modifier]
+        elif isinstance(modifier, list):
+            operations = modifier
+        else:
+            raise TypeError(
+                f'Unexpected modifier in {relative} on {item}: {modifier!r}'
+            )
+    else:
+        operations = entry.get('functions', [])
     functions = [
-        candidate for candidate in entry.get('functions', [])
-        if candidate.get('function') == function
+        candidate for candidate in operations
+        if candidate.get('function', candidate.get('type')) == function
     ]
     if len(functions) != 1:
         raise KeyError(
@@ -67,15 +86,21 @@ def make(
     def patch_enderman(relative: Path, json_content: ty.Dict) -> ty.Dict:
         entry = _entry(relative, json_content, pearl_item)
         count = _function(relative, entry, 'minecraft:set_count', pearl_item)['count']
-        count['min'] = min_enderman_pearl
+        if count['min'] != min_enderman_pearl:
+            count['min'] = min_enderman_pearl
         return json_content
 
     def patch_bartering(relative: Path, json_content: ty.Dict) -> ty.Dict:
         entry = _entry(relative, json_content, pearl_item)
-        entry['weight'] = pearl_weight
+        # Assign only when the value differs, so a table whose numbers already
+        # match keeps its own int/float spelling.
+        if entry['weight'] != pearl_weight:
+            entry['weight'] = pearl_weight
         count = _function(relative, entry, 'minecraft:set_count', pearl_item)['count']
-        count['min'] = pearl_min
-        count['max'] = pearl_max
+        if count['min'] != pearl_min:
+            count['min'] = pearl_min
+        if count['max'] != pearl_max:
+            count['max'] = pearl_max
         return json_content
 
     patchers: ty.Dict[Path, dispatch.Patcher] = {
