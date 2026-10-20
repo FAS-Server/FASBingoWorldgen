@@ -17,7 +17,7 @@ SAME_VERSION = 'MC_0'
 # Files copied into the root of every generated pack.
 # Paths are relative to the project root. For example:
 #   EXTRA_FILE = ['README.md', 'LICENSE']
-EXTRA_FILE = []
+EXTRA_FILE = ['README.md', 'LICENSE']
 
 # Files inside a version source directory that must never be treated as static
 # resources. Paths are relative to the version source root.
@@ -43,12 +43,15 @@ PROJECT_VERSION = '0.0.0'
 #
 # Name a version after the FIRST MC version it supports. When a later MC
 # version is compatible with the same sources, no rename is needed.
+#
+# Declared oldest first, because a version may only reference versions
+# declared before it.
 
-MC_EXAMPLE = {'path': 'example_pack/', 'name': 'ExampleDatapack_{version}', 'version': PROJECT_VERSION}
-
-# Add your own versions here, for example:
-# MC_1_20 = {'path': '1_20/', 'name': 'MyDatapack_1.20_{version}', 'version': PROJECT_VERSION}
-# MC_1_21 = {'path': '1_21/', 'name': 'MyDatapack_1.21_{version}', 'version': PROJECT_VERSION}
+MC_1_16_5 = {'path': '1_16_5/', 'name': 'FASBingoWorldgen_1.16.5_{version}', 'version': PROJECT_VERSION}
+MC_1_17_1 = {'path': '1_17_1/', 'name': 'FASBingoWorldgen_1.17.1_{version}', 'version': PROJECT_VERSION}
+MC_1_18_2 = {'path': '1_18_2/', 'name': 'FASBingoWorldgen_1.18.2_{version}', 'version': PROJECT_VERSION}
+MC_1_20 = {'path': '1_20/', 'name': 'FASBingoWorldgen_1.20_{version}', 'version': PROJECT_VERSION}
+MC_26_1 = {'path': '26_1/', 'name': 'FASBingoWorldgen_26.1_{version}', 'version': PROJECT_VERSION}
 
 
 def __collect_constant() -> dict:

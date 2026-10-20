@@ -7,25 +7,18 @@ TYPE = 'json'
 
 VANILLA_DIR = Path('vanilla/26_1')
 
-# Climate frequency multiplier for the overworld. Vanilla xz_scale is 0.25; the
-# biome source reads the inlined noise_router fields and the terrain reads the
-# named density functions, and both take this value.
+# Climate frequency multiplier for the overworld. Vanilla xz_scale is 0.25.
+#
+# temperature and vegetation are inlined in noise_router, so they are scaled
+# there. continents, erosion and ridges stay as references to named density
+# functions: the biome source and the terrain both read those files, so one
+# value in each file covers both sides and keeps them coupled.
 XZ_SCALE_OVERWORLD = 1.8
 
-# The biome source reads the climate fields inlined into noise_router, while
-# terrain reads the named density functions. Terrain is scaled through those
-# named functions, so both sides of the split use the same frequency.
-#
-# Set to False to keep terrain at vanilla frequency and compare the two; the
-# three overrides then disappear from the pack instead of being neutralised.
-SCALE_TERRAIN = True
-OVERWORLD_CLIMATE_NOISES = {
-    'temperature': 'minecraft:temperature',
-    'vegetation': 'minecraft:vegetation',
-    'continents': 'minecraft:continentalness',
-    'erosion': 'minecraft:erosion',
-    'ridges': 'minecraft:ridge',
-}
+# The two climate fields noise_router inlines. The other three stay references
+# and are scaled in their own files, so the biome source keeps reading the same
+# density functions as the terrain.
+INLINE_CLIMATE_FIELDS = ('temperature', 'vegetation')
 
 # Same role for the nether. Vanilla xz_scale is 0.25.
 XZ_SCALE_NETHER = 1.0
@@ -75,8 +68,8 @@ OFFSET = Path('data/minecraft/worldgen/density_function/overworld/offset.json')
 FACTOR = Path('data/minecraft/worldgen/density_function/overworld/factor.json')
 JAGGEDNESS = Path('data/minecraft/worldgen/density_function/overworld/jaggedness.json')
 
-# Named density functions the terrain reads; each wraps a shifted_noise that
-# the biome source also inlines.
+# Named density functions shared by the terrain and the biome source; scaling
+# them is what keeps both sides at the same climate frequency.
 TERRAIN_DENSITY_FUNCTIONS = {
     Path('data/minecraft/worldgen/density_function/overworld/continents.json'):
         'density_function__overworld__continents.json',
@@ -99,8 +92,7 @@ if RELIEF_FACTOR != 1.0:
     SOURCES[FACTOR] = 'density_function__overworld__factor.json'
 if RELIEF_JAGGED != 1.0:
     SOURCES[JAGGEDNESS] = 'density_function__overworld__jaggedness.json'
-if SCALE_TERRAIN:
-    SOURCES.update(TERRAIN_DENSITY_FUNCTIONS)
+SOURCES.update(TERRAIN_DENSITY_FUNCTIONS)
 
 # Set by reference_file, which is the only place that knows the pack root.
 _pack_root = Path()
@@ -116,24 +108,16 @@ def reference_file(patch_path: Path, patch_version_config: ty.Dict[str, str]) \
     ]
 
 
-def _inline_climate_noise(noise: str) -> ty.Dict:
-    # Inlined from the named density functions; the flat_cache wrapper is a
-    # cache only and is deliberately left out.
-    return {
-        'type': 'minecraft:shifted_noise',
-        'noise': noise,
-        'shift_x': 'minecraft:shift_x',
-        'shift_y': 0.0,
-        'shift_z': 'minecraft:shift_z',
-        'xz_scale': XZ_SCALE_OVERWORLD,
-        'y_scale': 0.0,
-    }
-
-
 def _patch_overworld(relative: Path, json_content: ty.Dict) -> ty.Dict:
     router = json_content['noise_router']
-    for field, noise in OVERWORLD_CLIMATE_NOISES.items():
-        router[field] = _inline_climate_noise(noise)
+    for field in INLINE_CLIMATE_FIELDS:
+        noise = router[field]
+        if noise.get('type') != 'minecraft:shifted_noise':
+            raise TypeError(
+                f'Expected an inlined shifted_noise in {relative} {field}, '
+                f'got {noise.get("type")!r}'
+            )
+        noise['xz_scale'] = XZ_SCALE_OVERWORLD
     if UNDERGROUND_RELIEF != 1.0:
         # The biome source samples this field; terrain reads overworld/depth
         # through sloped_cheese. Wrapping the reference therefore rescales the
@@ -239,10 +223,9 @@ if RELIEF_FACTOR != 1.0:
     RELATIVE_PATCHERS[FACTOR] = _patch_factor
 if RELIEF_JAGGED != 1.0:
     RELATIVE_PATCHERS[JAGGEDNESS] = _patch_jaggedness
-if SCALE_TERRAIN:
-    RELATIVE_PATCHERS.update({
-        relative: _patch_terrain_noise for relative in TERRAIN_DENSITY_FUNCTIONS
-    })
+RELATIVE_PATCHERS.update({
+    relative: _patch_terrain_noise for relative in TERRAIN_DENSITY_FUNCTIONS
+})
 
 
 def process_multi(content: ty.List[ty.Tuple[Path, ty.Dict]]) -> ty.List[ty.Tuple[Path, ty.Dict]]:
