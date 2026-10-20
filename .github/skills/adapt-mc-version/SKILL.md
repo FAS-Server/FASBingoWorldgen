@@ -7,20 +7,19 @@ description: 适配新的 Minecraft 版本（1.18 起）：新增版本目录、
 
 目标：新版本获得与既有版本相同的世界生成改造，产物只含改动过的文件。
 
-文中版本事实与落点适用至 26.2（数据格式 107.1）。更晚的版本若改动了原版文件结构，先按「判定落点」跑扫描复核，再套用本文结论。
+本文的流程与判定方法适用至 26.3（数据格式 121.0）；目标值、约束与验收判据见 [IMPLEMENTATION.md](../../../doc/IMPLEMENTATION.md)。更晚的版本若改动了原版文件结构，先按「判定落点」跑扫描复核，再套用本文结论。
 
 ## 边界
 
 - 本仓库覆盖 1.18 起的 `worldgen/` 布局。1.17 及以前用 `dimension/*.json` 的 `biome_source` 与 `noise_settings` 的 `noise` 块，机制不同，不适用本流程。
-- 1.18.2 的地形起伏在 `noise_settings/overworld.json` 的 `noise.terrain_shaper`，1.19 起才拆成 `density_function/overworld/{offset,factor,jaggedness}.json`；其余目标的落点自 1.18 起一致。
-- 26.1 起战利品目录为单数 `loot_table/`，包格式改用 `min_format`/`max_format`；此前为复数 `loot_tables/` 与 `pack_format`。
+- 字段名、目录名与语法形态的差异以版本差异扫描和构建时的工厂校验为准，不靠记忆版本号。工厂只接受它识别得出的结构，形态不符即报错；此时在 `patch_lib/` 增加该形态的处理，不放宽校验。
 
 ## 事实来源
 
 - 原版文件与版本差异扫描工具在 `ref/`，见 `AGENTS.md` 的「关键目录」。
+- 数据包导出不含 `worldgen/` 的版本取同版本的官方 worldgen dump；反编译产物自 1.20.1 起含 `worldgen/`。
 - 原版资源统一用包内相对路径描述，如 `data/minecraft/worldgen/noise_settings/overworld.json`；类用 `net/minecraft/...`。
 - 数据格式取目标版本游戏元数据的 `pack_version`：`data_major` 与 `data_minor`，写成 `[major, minor]`。
-- 1.18.2 的数据包导出不含 `worldgen/`，该版的地形与群系取同版本的官方 worldgen dump；战利品表仍在数据包导出里。
 - 文件在哪些版本之间变化，用版本差异扫描工具查，不要凭版本号推断。
 
 ## 判定落点
@@ -68,13 +67,13 @@ OVERLAYS = [
 - 终点取目标内容仍然正确的最后版本；被 overlay 接管的目标不影响主包终点。
 - 目标没有 `(anchor)` 段时，说明该目录所带的基线与 anchor 版本不一致，先修基线再定区间。
 
-静态版本目录迁移为补丁时，按同一流程处理：每个改动过的目标一条「基线 + 补丁」，删除对应的整份 JSON，产物在迁移前后应等价。迁移项与已知差异见 [IMPLEMENTATION.md 的「版本迁移」](../../../doc/IMPLEMENTATION.md#版本迁移)。
+静态版本目录迁移为补丁时，按同一流程处理：每个改动过的目标一条「基线 + 补丁」，删除对应的整份 JSON，产物在迁移前后应等价。迁移进度与已知偏差见 [PROGRESS.md](../../../doc/PROGRESS.md)。
 
 ## 基线
 
-- 只把与复用基线不同的文件放进 `common/vanilla/<版本>/`；其余文件继续用前一版目录。基线目录以内容所属版本命名，与补丁所在的版本目录无关。
+- 只把与前一版基线不同的文件放进 `common/vanilla/<版本>/`；其余文件继续用前一版目录。这里的「不同」指解析后不相等，字段顺序与空白不同不算变化。基线目录以内容所属版本命名，与补丁所在的版本目录无关。
 - 文件名扁平化为 `<类别>__<标识>.json`：`worldgen/` 之后的路径用 `__` 连接，`worldgen_26.source_name` 生成同样的名字。战利品表省略子目录，名字在补丁里显式给出（`loot_table__enderman.json`）。
-- 内容与被引用的原版文件逐字节相同：直接复制原始字节，不经 shell 重定向，也不先反序列化再写回。
+- 新增基线时直接复制目标版本原版文件的原始字节，不经 shell 重定向，也不先反序列化再写回：反序列化会改键序与格式，使基线不再是该版本原版文件的拷贝。
 - 共享的包描述在 `common/pack.mcmeta`，版本只提供格式字段。
 
 ## 补丁
@@ -87,7 +86,7 @@ OVERLAYS = [
 - 工厂会校验输入形态（如内联 `shifted_noise`、`random_spread`、`set_count`），形态不符即报错。复用工厂前先确认目标版本的字段结构；形态不同时在 `patch_lib` 增加该形态的处理，不放宽校验。
 - `1_18_2/` 与 `1_20/` 是整份静态 JSON，不读 `tuning.py`；迁移时按本节改写为基线加补丁。
 
-目标清单、字段与版本差异见 [references/targets.md](references/targets.md)。
+目标值、约束与验收判据见 [IMPLEMENTATION.md](../../../doc/IMPLEMENTATION.md)。
 
 ## 注册
 
@@ -108,7 +107,7 @@ OVERLAYS = [
 
 - 取到的原版文件为空或不完整，先确认它确实属于该版本，再当作基线。
 - 用 PowerShell 重定向写基线，文件变成 UTF-16。
-- 基线经过 JSON 反序列化再写回，字节不同，后续比对失真。
+- 基线经过 JSON 反序列化再写回：键序与格式被改写，基线不再是该版本原版文件的拷贝。
 - overlay 目录没有登记到 `overlays.entries`：产物存在但游戏不加载。
 - 把不同起点的文件塞进一个 overlay，区间只能取其中一段。
 - 在新版本补丁里重复写数值，之后调 `tuning.py` 时漏掉该版本。
