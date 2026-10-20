@@ -1,0 +1,115 @@
+---
+name: adapt-mc-version
+description: 适配新的 Minecraft 版本（1.18 起）：新增版本目录、判定 overlay 落点、迁移静态版本目录、重算数据格式区间。Use when adding a Minecraft version, choosing between a version directory and an overlay, migrating a static version directory to patches, or recomputing a pack or overlay data format range.
+---
+
+# 适配 Minecraft 版本
+
+目标：新版本获得与既有版本相同的世界生成改造，产物只含改动过的文件。
+
+文中版本事实与落点适用至 26.2（数据格式 107.1）。更晚的版本若改动了原版文件结构，先按「判定落点」跑扫描复核，再套用本文结论。
+
+## 边界
+
+- 本仓库覆盖 1.18 起的 `worldgen/` 布局。1.17 及以前用 `dimension/*.json` 的 `biome_source` 与 `noise_settings` 的 `noise` 块，机制不同，不适用本流程。
+- 1.18.2 的地形起伏在 `noise_settings/overworld.json` 的 `noise.terrain_shaper`，1.19 起才拆成 `density_function/overworld/{offset,factor,jaggedness}.json`；其余目标的落点自 1.18 起一致。
+- 26.1 起战利品目录为单数 `loot_table/`，包格式改用 `min_format`/`max_format`；此前为复数 `loot_tables/` 与 `pack_format`。
+
+## 事实来源
+
+- 原版文件与版本差异扫描工具在 `ref/`，见 `AGENTS.md` 的「关键目录」。
+- 原版资源统一用包内相对路径描述，如 `data/minecraft/worldgen/noise_settings/overworld.json`；类用 `net/minecraft/...`。
+- 数据格式取目标版本游戏元数据的 `pack_version`：`data_major` 与 `data_minor`，写成 `[major, minor]`。
+- 1.18.2 的数据包导出不含 `worldgen/`，该版的地形与群系取同版本的官方 worldgen dump；战利品表仍在数据包导出里。
+- 文件在哪些版本之间变化，用版本差异扫描工具查，不要凭版本号推断。
+
+## 判定落点
+
+先对本系列版本跑一次内容分段扫描：每个目标文件列出内容分段，`[ ]` 内是数据格式，`(newest)` 段是目标版本的内容，`(anchor)` 段是既有版本目录所带基线仍正确的范围，其余段内容不同。
+
+```text
+worldgen/noise_settings/nether.json
+  26.1-snapshot-1 [95.0] ~ 26.1-snapshot-10 [99.3]
+  26.1-snapshot-11 [100.0] ~ 26.2-snapshot-3 [102.0]  (anchor)
+  26.2-snapshot-4 [103.0] ~ 26.2-snapshot-4 [103.0]
+  26.2-snapshot-5 [104.0] ~ 26.2 [107.1]  (newest)
+```
+
+扫描时把既有版本目录对应的版本名作为 anchor，省略时以系列最新版本为参照；目标可以是文件或目录，清单之外的文件需要显式追加。
+
+| 扫描结果 | 做法 |
+| --- | --- |
+| 所有目标只有一段 | 目的版本与既有版本内容相同，只把 `pack.mcmeta` 的区间延长到它 |
+| 少数目标另有分段，目录结构不变 | 在既有版本目录下做 overlay |
+| 多数目标分段紊乱，或路径、字段形态变化 | 新建版本目录，在 `build_settings.py` 注册 |
+
+overlay 规则：
+
+- 目录放在既有版本目录内：`<版本目录>/<overlay>/data/<命名空间>/`，名字取 `<内容起始版本>_<主题>`。
+- 一个 overlay 只放起点相同的目标；起点不同的目标分属不同 overlay，各自登记区间。
+- 目录与区间登记在被覆盖版本的 `pack.mcmeta` 的 `overlays.entries`，注释写 `起始版本 ~ 末版本`。
+
+```python
+OVERLAYS = [
+    {
+        'directory': '26_2_nether',    # 26.2 snapshot-5 ~ 26.2
+        'min_format': [104, 0],
+        'max_format': [107, 1],
+    },
+]
+```
+
+- 区间只能切在数据格式号变化处：多个快照常共用同一格式号。
+- 起点之前的版本仍由主包提供旧内容，这是允许的；需要覆盖那段就再切一个 overlay。
+
+主包区间：
+
+- 起点取各目标 `(anchor)` 段起点的最大值。
+- 终点取目标内容仍然正确的最后版本；被 overlay 接管的目标不影响主包终点。
+- 目标没有 `(anchor)` 段时，说明该目录所带的基线与 anchor 版本不一致，先修基线再定区间。
+
+静态版本目录迁移为补丁时，按同一流程处理：每个改动过的目标一条「基线 + 补丁」，删除对应的整份 JSON，产物在迁移前后应等价。迁移项与已知差异见 [IMPLEMENTATION.md 的「版本迁移」](../../../doc/IMPLEMENTATION.md#版本迁移)。
+
+## 基线
+
+- 只把与复用基线不同的文件放进 `common/vanilla/<版本>/`；其余文件继续用前一版目录。基线目录以内容所属版本命名，与补丁所在的版本目录无关。
+- 文件名扁平化为 `<类别>__<标识>.json`：`worldgen/` 之后的路径用 `__` 连接，`worldgen_26.source_name` 生成同样的名字。战利品表省略子目录，名字在补丁里显式给出（`loot_table__enderman.json`）。
+- 内容与被引用的原版文件逐字节相同：直接复制原始字节，不经 shell 重定向，也不先反序列化再写回。
+- 共享的包描述在 `common/pack.mcmeta`，版本只提供格式字段。
+
+## 补丁
+
+- 补丁必须声明 `TYPE = 'json'`，暴露 `reference_file` 与 `process_single` 或 `process_multi`。
+- 目标路径相对包根书写，产物因此可以落在本体，也可以落在 overlay 目录。
+- `dispatch.make(sources, patchers)` 生成三个入口：`sources` 是目标路径到 `common/` 相对路径的映射，`patchers` 是目标路径到处理函数的映射；未登记的目标报错。
+- 处理函数由工厂提供：`worldgen_26.terrain`、`worldgen_26.structure`、`worldgen_26.placed_feature`、`loot_table.make`、`mcmeta.make`。
+- 数值只写进 `patch_lib/tuning.py`；版本补丁只写落点：目录、参与的集合清单、基线文件名、格式字段。
+- 工厂会校验输入形态（如内联 `shifted_noise`、`random_spread`、`set_count`），形态不符即报错。复用工厂前先确认目标版本的字段结构；形态不同时在 `patch_lib` 增加该形态的处理，不放宽校验。
+- `1_18_2/` 与 `1_20/` 是整份静态 JSON，不读 `tuning.py`；迁移时按本节改写为基线加补丁。
+
+目标清单、字段与版本差异见 [references/targets.md](references/targets.md)。
+
+## 注册
+
+- 新版本目录在 `build_settings.py` 增加 `MC_*` 常量；声明顺序即构建顺序，只能引用声明在前的版本。
+- 目录名与产物名取首个支持的版本；后续兼容版本不新建目录，只延长区间或加 overlay。
+- overlay 只登记 `overlays.entries`，不新增 `MC_*`。
+- 版本目录至少有一个 `pack___mcmeta.py`，由 `mcmeta.make` 生成：26.1 前传 `pack_format`，之后传 `min_format` 与 `max_format`，需要 overlay 时传 `overlays`。
+
+## 验收
+
+- `python build.py` 全部版本成功；`python tools/clean.py` 后没有 `__pycache__`。
+- 逐文件 `python tools/json_diff.py <该版本基线> <产物>`：差异恰好是预期字段，且不出现多余字段。
+- overlay 产物落在 `build/<版本>/<overlay>/data/...`，同名文件在主包之上生效。
+- 改一个 `tuning.py` 的值重建：所有走补丁的版本同步变化，静态文件版本不变。
+- 重构既有补丁时，先记录各产物与基线的差异字段，改完重建后逐项相同，才算无行为变化。
+
+## 常见错误
+
+- 取到的原版文件为空或不完整，先确认它确实属于该版本，再当作基线。
+- 用 PowerShell 重定向写基线，文件变成 UTF-16。
+- 基线经过 JSON 反序列化再写回，字节不同，后续比对失真。
+- overlay 目录没有登记到 `overlays.entries`：产物存在但游戏不加载。
+- 把不同起点的文件塞进一个 overlay，区间只能取其中一段。
+- 在新版本补丁里重复写数值，之后调 `tuning.py` 时漏掉该版本。
+- 沿用 1.17 的 `noise_settings.noise` 或 `dimension` 落点处理 1.18+ 版本。
