@@ -2,6 +2,8 @@
 
 整体目标见 [DESIGN.md](DESIGN.md)，本文记录实现路线。各项改动按目标分节，每节先给目标值与各版本现状，再给落点与操作。
 
+版本事实与目标值适用至 26.2（数据格式 107.1）。更晚的版本若改动原版文件结构，先用版本差异扫描工具复核对应落点，再套用本文结论。
+
 ## 目标
 
 1. 群系缩小
@@ -22,7 +24,7 @@
 | 结构分布 | `noise_settings` 的 `structures.structures` | `worldgen/structure_set/<集合>.json` 的 `placement` |
 | 群系源 | `dimension/<维度>.json` 的 `biome_source`，主世界为 `vanilla_layered` | 同左，主世界为 `multi_noise` |
 | 战利品表目录 | `loot_tables/` | 26.1 起为 `loot_table/` |
-| 包格式字段 | `pack_format` | 26.1 起为 `min_format` 与 `max_format` |
+| 包格式字段 | `pack_format` | 26.1 起为 `min_format` 与 `max_format`；26.2 起由 26.1 主包的 overlay 承载 |
 
 - 1.17 起维度文件引入 `min_y` 与 `height`，主世界为 `0..256`；1.18 起主世界为 `-64..320`。
 - 原版数据取自官方 worldgen dump 或反编译源码。反编译产物自 1.20.1 起含 `worldgen/`，更早的版本只能取 dump。
@@ -35,17 +37,22 @@
 - 被引用的原版文件放进 `common/vanilla/<版本>/`，扁平命名为 `<类别>__<标识>.json`，内容与基线逐字节相同。
 - 目标路径相对包根书写，与 `patch_lib.paths.package_root(patch_path)` 拼接，使同一张表同时适用于本体与 overlay。
 - 同类别且同时变化的资源合并为一个 `*__multi.py`，按目标路径显式分派，未登记的目标报错。
+- 版本补丁只写目标路径与所用旋钮；共享算法在 `patch_lib/`：`dispatch.make` 负责源表、包根与分派，`worldgen_26` 负责 26.x 的地形、结构与已放置特性，`loot_table.make` 负责战利品条目。
+- 基线名由目标路径派生：`worldgen/` 之下用 `__` 连接，如 `data/minecraft/worldgen/density_function/overworld/offset.json` 对应 `density_function__overworld__offset.json`。战利品表省略子目录，名字由补丁显式给出。
+- 新版本只在目标文件与前一版不同时新增基线，其余沿用前一版目录；补丁用 `source_overrides` 指向改动过的文件。
 - `pack.mcmeta` 的描述取自 `common/pack.mcmeta`，版本补丁只提供格式字段。
 - 版本按声明顺序构建，只能引用声明在前的版本。
 
 ### 参数常量
 
-补丁顶部的大写全局常量是可调参数，取值即当前决策，不是「未配置时的默认值」。
+可调参数集中在 `patch_lib/tuning.py`，取值即当前决策，不是「未配置时的默认值」。版本补丁只写落点并引用它，因此同一旋钮对所有走补丁的版本同时生效，不会因复制到各版本而分叉。
 
 - 参数注释里的 `vanilla` 取值是对照基准，用于换算，不表示关掉后回到该值。
-- `1.0` 与 `True` 是「不缩放」的哨兵：对应文件或分支从产物中消失，不输出与原版相同的拷贝。仅当该值为哨兵时，参数才参与 `SOURCES` 与 `RELATIVE_PATCHERS` 的条件注册，因为需要增减源文件；只改字段内容的参数（如 `UNDERGROUND_RELIEF`）在补丁函数内判断。
+- `1.0` 与 `True` 是「不缩放」的哨兵：对应文件或分支从产物中消失，不输出与原版相同的拷贝。仅当该值为哨兵时，参数才参与源文件清单与分派表的构造，因为需要增减源文件；只改字段内容的参数（如 `UNDERGROUND_RELIEF`）在补丁函数内判断。
 - `XZ_SCALE_*` 的基准是原版 `0.25`，不是 `1.0`。
 - 一个参数只在一处取值，被多处使用时引用同一常量（如地形与群系的 `xz_scale`）。
+- 目录名、集合清单与基线文件名不进 `tuning.py`：它们在版本之间会变（如 `loot_tables/` 与 `loot_table/`），属于落点，写在版本补丁里。
+- 1.18.2 与 1.20 是整份静态文件，不读这些参数；两版迁移为补丁后自动共用。
 - 文档记录参数名与当前取值，不写「默认启用」或「默认关闭」。参数调整只改数值，不改文档结构。
 
 ## 离线工具
@@ -86,7 +93,7 @@
 
 1.18 起，噪声文件保持原版，频率只改在 `xz_scale` 上。五个气候字段沿用原版的文件归属：
 
-| 字段 | 原版形式 | 目标 | 1.18.2 | 1.20 | 26.1 |
+| 字段 | 原版形式 | 目标 | 1.18.2 | 1.20 | 26.1、26.2 |
 | --- | --- | --- | --- | --- | --- |
 | `temperature` | `noise_router` 内联 `shifted_noise` | 内联字段 `xz_scale` `1.8` | `firstOctave` `-7` | 同 1.18.2 | 已达标 |
 | `vegetation` | 同上 | 同上 | `-5` | 同 1.18.2 | 已达标 |
@@ -106,11 +113,11 @@
 | `weirdness` | `-4` | `[1.0, 2.0, 1.0, 0.0, 0.0, 0.0]` | 无此噪声 | `-4`，`[1.0, 1.0]` | `-4`，`[1.2, 1.2]` |
 | 群系参数表 | 投影表，条目数按档位 | 原版表 | `vanilla_layered` | 68 条自建表 | 29 条自建表 |
 
-低版本用 `firstOctave` 表达频率，只能取到 8 倍；26.1 的 `1.8` 对应 `7.2` 倍，低版本无法精确复现，按 `1/8` 取。
+低版本用 `firstOctave` 表达频率，只能取到 8 倍；26.1 与 26.2 的 `1.8` 对应 `7.2` 倍，低版本无法精确复现，按 `1/8` 取。
 
 下界目标取 4 倍，即 `xz_scale` `1.0`；1.17 及以前等效为 `firstOctave` 加二。
 
-| 项目 | 目标值 | 原版值 | 1.16.5 | 1.17.1 | 1.18.2 | 1.20 | 26.1 |
+| 项目 | 目标值 | 原版值 | 1.16.5 | 1.17.1 | 1.18.2 | 1.20 | 26.1、26.2 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `temperature` | `xz_scale` `1.0` | `0.25` | 未改 | `firstOctave` `-5` | `0.65` | `0.65` | `1.0` |
 | `vegetation` | `xz_scale` `1.0` | `0.25` | 未改 | `firstOctave` `-5` | `0.65` | `0.65` | `1.0` |
@@ -222,7 +229,7 @@
 | 1.16.5 | `dimension/the_nether.json` | `temperature_noise` 与 `humidity_noise` 的 `firstOctave` 由 `-7` 改 `-5` |
 | 1.17.1 | 同左 | 同左 |
 | 1.18.2 与 1.20 | `noise_settings/nether.json` 的 `noise_router` | `temperature` 与 `vegetation` 的 `xz_scale` 由 `0.65` 改 `1.0` |
-| 26.1 | 同左 | 同左 |
+| 26.1、26.2 | 同左 | 同左 |
 
 1.17 及以前用 `firstOctave`，加二即 4 倍；1.18 起用 `xz_scale`，`1.0` 相对原版 `0.25` 为 4 倍。
 
@@ -251,16 +258,17 @@
 
 覆盖内置命名密度函数要求文件结构与目标版本一致，迁移时以产物与基线的逐文件比对确认。
 
-### 编写指导：26.1
+### 编写指导：26.1 与 26.2
 
-落点是 `terrain__multi.py`，源文件取 `common/vanilla/26_1/`。
+26.1 目录同时服务两版，参数取自 `patch_lib/tuning.py`，26.2 与 26.1 的差异由该目录内的 overlay 承载（区间见 `pack___mcmeta.py`）。
 
 - `noise_settings/overworld.json` 的 `temperature` 与 `vegetation` 就地改 `xz_scale` 为 `1.8`；`continents`、`erosion`、`ridges` 保持原版引用。
 - 三个命名密度函数 `overworld/continents`、`overworld/erosion`、`overworld/ridges` 的 `argument.xz_scale` 改 `1.8`，由 `TERRAIN_DENSITY_FUNCTIONS` 驱动。
 - `depth` 引用包一层 `×1/UNDERGROUND_RELIEF` 的 `mul`。
 - `noise_settings/nether.json` 的 `temperature` 与 `vegetation` 的 `xz_scale` 改 `1.0`。
+- 三个命名密度函数与 `offset`、`factor`、`jaggedness` 在 26.2 未变，不需要 26.2 的源。
 
-频率只有一个取值 `XZ_SCALE_OVERWORLD`，群系与地形不可能漂移。
+频率只有一个取值 `XZ_SCALE_OVERWORLD`，群系与地形不可能漂移；26.2 走同一组常量。
 
 下界地貌不随群系缩放，`noise_settings/nether.json` 只改气候字段。
 
@@ -287,7 +295,7 @@ $$
 
 ### 目标效果
 
-| 项目 | 26.1 取值 | 原版 | 落点 |
+| 项目 | 26.1、26.2 取值 | 原版 | 落点 |
 | --- | --- | --- | --- |
 | 高地高度 | `offset` 正值叶乘 `0.45` | 地表 `25..256` | `density_function/overworld/offset.json` |
 | 峰顶细节 | `jaggedness` 全部叶乘 `0.45` | 最大叶值 `0.63` | `density_function/overworld/jaggedness.json` |
@@ -399,9 +407,9 @@ $$
 - 远古城市只有 1.20 起：`structure/ancient_city.json` 的 `max_distance_from_center` 由 `116` 改 `96`；`spacing` 按主世界系数缩放。
 - 怪物房：`placed_feature/monster_room.json` 改 `50` 并把高度上界压到 `128`，`monster_room_deep.json` 改 `20`。
 
-### 编写指导：26.1
+### 编写指导：26.1 与 26.2
 
-落点是补丁：结构定义与结构集合归 `structure__multi.py`，怪物房归 `placed_feature__multi.py`，源文件取 `common/vanilla/26_1/`。
+落点是主包的 `structure__multi.py` 与 `placed_feature__multi.py`。26.2 的这些目标与 26.1 逐字节相同，不需要 overlay，基线仍取 `common/vanilla/26_1/`。
 
 - `DIMENSION_SCALES` 存维度系数，`DIMENSION_SETS` 列该维度参与的原版集合，两者驱动同一套缩放。
 - `SPECIAL_FIELD_OVERRIDES` 存覆盖项；排除集合的覆盖项以注释预置，解除注释并加入清单即可启用。
@@ -417,7 +425,7 @@ $$
 1. 猪灵以物易物的珍珠条目回调到 1.16.1 的权重与数量，其余条目保留本版原版
 2. 末影人的珍珠掉落率设置保底 1，减少运气成分
 
-| 项目 | 目标值 | 原版值 | 1.16.5 | 1.17.1 至 1.20 | 26.1 |
+| 项目 | 目标值 | 原版值 | 1.16.5 | 1.17.1 至 1.20 | 26.1、26.2 |
 | --- | --- | --- | --- | --- | --- |
 | 珍珠条目 `weight` | `20` | `10` | `20` | `20` | 已达标 |
 | 珍珠条目 `count` | `4..8` | `2..4` | `4..8` | `4..8` | 已达标 |
@@ -460,11 +468,12 @@ $$
 - 同时把表恢复为本版原版。1.17.1 至 1.20 的原版条目数均为 18，含黑石、追踪之箭、水瓶。
 - 末影人：`count.min` 改 `1`。
 
-### 编写指导：26.1
+### 编写指导：26.1 与 26.2
 
 - 以物易物：`loot_table/gameplay/piglin_bartering.json` 的珍珠条目 `weight` 改 `20`，`count` 改 `4..8`，其余条目与原版一致。原版条目数为 19，较 1.17.1 至 1.20 多一条脱水幽灵。
 - 末影人：`count.min` 改 `1`，保留 `random_sequence`。
 - 两者归 `loot_table__multi.py`，目标路径为 `loot_table/`，单数。
+- 26.2 的两张表省略了取默认值的字段（`bonus_rolls` `0.0`、`add` `false`），条目集合不变。26.2 的产物必须从 26.2 的原版表重做，否则会把无关条目的写法回退成 26.1。
 
 
 
@@ -483,7 +492,7 @@ $$
 
 迁移完成即删本节。
 
-1. 先完善 26.1 的补丁实现，作为其余版本的参照。
+1. 先完善 26.x 的补丁实现，作为其余版本的参照。
 2. 按 1.20、1.18.2、1.17.1、1.16.5 自新到旧迁移。
 3. 每版把需要修改的原版文件放进 `common/vanilla/<版本>/`，按目标效果节的策略写补丁。
 4. 1.18.2 与 1.20 先删除噪声文件再改密度函数，顺序不可颠倒：噪声回到原版后，密度函数上的频率才是唯一取值。
@@ -510,8 +519,8 @@ $$
 - 地下：`noise_router` 的 `depth` 是原版引用外加一层 `mul`，`final_density`、`preliminary_surface_level` 与 `surface_rule` 与基线逐字段相同。
 - 分段映射：`offset` 的负值叶、`factor` 不大于 `1.0` 的叶逐字段等于基线，零值处保持零。
 - 地表：海平面附近的高度与原版一致；峰顶高度应低于原版上限 `256`，且不出现硬截断。
-- 格式：`pack.mcmeta` 含目标版本的格式字段与 `common/pack.mcmeta` 的描述，且不含过期字段。
-- overlay：把补丁临时放进 overlay 目录构建一次，确认产物落在 `<overlay>/data/...` 下。
+- 格式：`pack.mcmeta` 的格式字段与 overlay 登记能覆盖目标版本区间，且不含过期字段。
+- 旋钮：改动 `patch_lib/tuning.py` 的一个值后重建，所有走补丁的版本产物应同步变化；静态文件的版本不应变化。
 
 ## 参考来源
 
