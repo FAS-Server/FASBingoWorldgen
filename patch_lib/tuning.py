@@ -32,6 +32,38 @@ INLINE_CLIMATE_FIELDS = ('temperature', 'vegetation')
 XZ_SCALE_NETHER = 1.0
 NETHER_CLIMATE_FIELDS = ('temperature', 'vegetation')
 
+# Base parameters of the four-axis climate noise the pre-1.18 biome source
+# reads: vanilla 1.18 values of the noise files the axes map onto. That source
+# has no xz_scale, so the frequency is `firstOctave` and the octave weights have
+# to be spelled out. The amplitudes set the weight of each octave; collapsing
+# them to two entries would change the detail of the grid.
+#
+# temperature, humidity, altitude and weirdness map onto the vanilla 1.18
+# temperature, vegetation, continentalness and ridge noise files in that order.
+LEGACY_CLIMATE_BASE = {
+    'temperature': (-10, (1.5, 0.0, 1.0, 0.0, 0.0, 0.0)),
+    'humidity': (-8, (1.0, 1.0, 0.0, 0.0, 0.0, 0.0)),
+    'altitude': (-9, (1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0)),
+    'weirdness': (-7, (1.0, 2.0, 1.0, 0.0, 0.0, 0.0)),
+}
+
+# Octaves added to every axis of LEGACY_CLIMATE_BASE, so this is the only knob
+# for how small the legacy biomes get. One octave doubles the frequency, so 3 is
+# 8x, i.e. 1/8 in the layer-scale sense. It stays at 3 because 7.2x
+# (XZ_SCALE_OVERWORLD) is not a power of two and the old mechanism cannot
+# express it; 3 is the equivalent of an xz_scale of 2.0.
+LEGACY_CLIMATE_OCTAVE_SHIFT = 3
+
+# Tier of the projected biome table the legacy source reads. The old source
+# scans the list linearly for every biome sample, so the tier bounds the
+# per-chunk cost: full 2056 entries, balanced 1044, lite 128. The tables are
+# generated into `common/biome_source/`; all three can be swapped wholesale.
+LEGACY_BIOME_TIER = 'balanced'
+
+# Nether climate axes of the old nether preset. Its entries only vary on
+# temperature and humidity, so the other two are left alone.
+LEGACY_NETHER_CLIMATE_FIELDS = ('temperature', 'humidity')
+
 # --- Terrain relief ----------------------------------------------------------
 
 # Peak sharpness. jaggedness is the amplitude of the jagged noise added to depth
