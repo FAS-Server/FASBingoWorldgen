@@ -40,11 +40,17 @@ NETHER_CLIMATE_FIELDS = ('temperature', 'vegetation')
 #
 # temperature, humidity, altitude and weirdness map onto the vanilla 1.18
 # temperature, vegetation, continentalness and ridge noise files in that order.
+#
+# `firstOctave + len(amplitudes) - 1` must stay <= 0: the old noise only
+# allocates levels up to octave 0, and 1.17.1 throws on anything above it. The
+# trailing entries of altitude and weirdness are cut for that reason; they are
+# the finest octaves, so the layout is unchanged apart from the normalisation
+# factor, which is derived from the list length.
 LEGACY_CLIMATE_BASE = {
     'temperature': (-10, (1.5, 0.0, 1.0, 0.0, 0.0, 0.0)),
     'humidity': (-8, (1.0, 1.0, 0.0, 0.0, 0.0, 0.0)),
-    'altitude': (-9, (1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0)),
-    'weirdness': (-7, (1.0, 2.0, 1.0, 0.0, 0.0, 0.0)),
+    'altitude': (-9, (1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 1.0)),
+    'weirdness': (-7, (1.0, 2.0, 1.0, 0.0, 0.0)),
 }
 
 # Octaves added to every axis of LEGACY_CLIMATE_BASE, so this is the only knob

@@ -19,7 +19,7 @@
 
 「待迁移」指功能已达标，但实现方式是改 `worldgen/noise/*.json` 的 `firstOctave`，与目标形态不符，需改为保持噪声文件原版、频率只落在密度函数的 `xz_scale` 上。
 
-旧版四轴噪声：两版都改为 `-7`、`-5`、`-6`、`-4`，对应 `temperature`、`humidity`、`altitude`、`weirdness`，振幅取 1.18 噪声文件。目标见 [IMPLEMENTATION.md 的「旧机制：四轴投影」](IMPLEMENTATION.md#旧机制四轴投影)。
+旧版四轴噪声：两版都改为 `-7`、`-5`、`-6`、`-4`，对应 `temperature`、`humidity`、`altitude`、`weirdness`，振幅取 1.18 噪声文件，`altitude` 与 `weirdness` 截去末层以保持 octave `<= 0`。目标见 [IMPLEMENTATION.md 的「旧机制：四轴投影」](IMPLEMENTATION.md#旧机制四轴投影)。
 
 1.17.1 的群系表包含 `dripstone_caves` 与 `lush_caves`（本版特色），因此比 1.16.5 多 2 条；两版各自生成，不共用表。
 

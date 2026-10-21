@@ -29,7 +29,16 @@ def _strip_namespace(name: str) -> str:
 
 def _noise(axis: str, parameters: ty.Tuple[int, ty.Iterable[float]]) -> ty.Dict:
     first_octave, amplitudes = parameters
-    return {'firstOctave': first_octave, 'amplitudes': list(amplitudes)}
+    amplitudes = list(amplitudes)
+    highest = first_octave + len(amplitudes) - 1
+    if highest > 0:
+        # 1.16.5 silently drops these levels, 1.17.1 raises; both mean the
+        # parameters are not doing what they say.
+        raise ValueError(
+            f'{axis} noise reaches octave {highest}; the pre-1.18 source only '
+            f'supports octaves <= 0'
+        )
+    return {'firstOctave': first_octave, 'amplitudes': amplitudes}
 
 
 def octave_shift(xz_scale: float, vanilla_scale: float = 0.25) -> int:

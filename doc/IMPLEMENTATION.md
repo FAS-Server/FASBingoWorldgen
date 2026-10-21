@@ -118,8 +118,10 @@
 | --- | --- | --- |
 | `temperature` | `-7` | `[1.5, 0.0, 1.0, 0.0, 0.0, 0.0]` |
 | `humidity` | `-5` | `[1.0, 1.0, 0.0, 0.0, 0.0, 0.0]` |
-| `altitude` | `-6` | `[1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0]` |
-| `weirdness` | `-4` | `[1.0, 2.0, 1.0, 0.0, 0.0, 0.0]` |
+| `altitude` | `-6` | `[1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 1.0]` |
+| `weirdness` | `-4` | `[1.0, 2.0, 1.0, 0.0, 0.0]` |
+
+`firstOctave + len(amplitudes) - 1` 必须 `<= 0`。旧实现只为 octave `<= 0` 的层分配噪声对象：1.16.5 静默丢弃正 octave 的层，1.17.1 抛 `Positive octaves are temporarily disabled`。截掉的都是最细的倍频，区域划分不变；列表长度参与归一化系数，幅度因此有小幅偏移。
 
 群系噪声内联在 `biome_source`，与 `noise_settings` 的地形噪声互不相干，改频率不影响地形。`seed` 同时写 `generator.seed` 与 `generator.biome_source.seed`，两处取值相同。
 
