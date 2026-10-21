@@ -20,4 +20,5 @@ reference_file, process_single = worldgen_legacy.nether_climate(
     vanilla_source=VANILLA_DIR / 'dimension__the_nether.json',
     fields=tuning.LEGACY_NETHER_CLIMATE_FIELDS,
     octave_shift=worldgen_legacy.octave_shift(tuning.XZ_SCALE_NETHER),
+    seed=tuning.LEGACY_GENERATOR_SEEDS['1_16_5']['the_nether'],
 )

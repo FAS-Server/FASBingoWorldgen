@@ -70,6 +70,26 @@ LEGACY_BIOME_TIER = 'balanced'
 # temperature and humidity, so the other two are left alone.
 LEGACY_NETHER_CLIMATE_FIELDS = ('temperature', 'humidity')
 
+# --- Generator seed ----------------------------------------------------------
+
+# Seed baked into each legacy dimension file, written to both `generator.seed`
+# and the biome source's `seed`.
+#
+# Before 1.19 a dimension definition carries the generator seed, and a datapack
+# dimension replaces the one of the world preset, so the world seed never
+# reaches the chunk generator: the terrain noise and the biome layout are fixed
+# by this value, and only structures, features and loot follow the world seed.
+# 1.19 removed the field and always uses the world seed. The rest of the pack
+# therefore cannot make the pre-1.18 worlds seed-dependent; see README.md.
+#
+# These are the seeds each release was generated with, so they differ per
+# version and per dimension on purpose. Unlike the knobs above, they are not a
+# target to equalise; equalising them makes two versions share one layout.
+LEGACY_GENERATOR_SEEDS = {
+    '1_16_5': {'overworld': -1464245863, 'the_nether': 0},
+    '1_17_1': {'overworld': 69368, 'the_nether': 69368},
+}
+
 # --- Terrain relief ----------------------------------------------------------
 
 # Peak sharpness. jaggedness is the amplitude of the jagged noise added to depth

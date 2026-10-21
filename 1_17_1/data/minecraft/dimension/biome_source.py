@@ -27,4 +27,5 @@ reference_file, process_single, process_multi = worldgen_legacy.overworld_biome_
     tier=tuning.LEGACY_BIOME_TIER,
     climate=tuning.LEGACY_CLIMATE_BASE,
     octave_shift=tuning.LEGACY_CLIMATE_OCTAVE_SHIFT,
+    seed=tuning.LEGACY_GENERATOR_SEEDS['1_17_1']['overworld'],
 )

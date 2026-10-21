@@ -69,6 +69,7 @@ def overworld_biome_source(
         tier: str,
         climate: ty.Mapping[str, ty.Tuple[int, ty.Iterable[float]]],
         octave_shift: int,
+        seed: int,
     ) -> ty.Tuple[ty.Callable, ty.Callable, ty.Callable]:
     '''
     Builds the patch that replaces the overworld biome source.
@@ -88,6 +89,10 @@ def overworld_biome_source(
     - octave_shift: octaves added to every axis of `climate`. One octave doubles
       the frequency; the old parameters have no scale, so this is the only way
       to raise it.
+    - seed: written to `generator.seed` and to the biome source's `seed`. A
+      datapack dimension replaces the preset dimension together with its seed
+      before 1.19, and data cannot reference the world seed, so this constant
+      is what the noise is actually built from.
 
     The vanilla file is expected to use `vanilla_layered`; an already patched
     file raises instead of being patched twice.
@@ -125,15 +130,17 @@ def overworld_biome_source(
 
         patched: ty.Dict[str, ty.Any] = {
             'type': 'minecraft:multi_noise',
-            # the old source has no seed of its own; keep it equal to the
-            # generator seed so the two entries cannot drift apart
-            'seed': generator['seed'],
+            # pre-1.18 data cannot reference the world seed, and the dimension
+            # file replaces the preset one including its seed, so the noise is
+            # built from this constant; keep both entries equal
+            'seed': seed,
         }
         patched.update({
             f'{axis}_noise': _noise(axis, (first_octave + octave_shift, amplitudes))
             for axis, (first_octave, amplitudes) in climate.items()
         })
         patched['biomes'] = table['biomes']
+        generator['seed'] = seed
         generator['biome_source'] = patched
         return [(root / relative, dimension)]
 
@@ -149,6 +156,7 @@ def nether_climate(
         vanilla_source: Path,
         fields: ty.Iterable[str],
         octave_shift: int,
+        seed: int,
     ) -> ty.Tuple[ty.Callable, ty.Callable]:
     '''
     Patcher for `dimension/the_nether.json`: raises the climate frequency by
@@ -156,7 +164,9 @@ def nether_climate(
 
     One octave doubles the frequency, so a 4x target is a shift of 2. The
     fields listed are the ones the nether preset entries actually vary on; the
-    other two carry no information for it.
+    other two carry no information for it. `seed` is written to both
+    `generator.seed` and the biome source's `seed`, for the reason given in
+    `overworld_biome_source`.
     '''
     fields = tuple(fields)
 
@@ -165,7 +175,8 @@ def nether_climate(
 
     def process_single(content: ty.Tuple[Path, ty.Dict]) -> ty.Tuple[Path, ty.Dict]:
         target, dimension = content
-        biome_source = dimension['generator']['biome_source']
+        generator = dimension['generator']
+        biome_source = generator['biome_source']
         if biome_source.get('type') != 'minecraft:multi_noise':
             raise TypeError(
                 f'Expected multi_noise in {dimension_target}, '
@@ -176,6 +187,8 @@ def nether_climate(
             if noise is None:
                 raise KeyError(f'{dimension_target} has no {field}_noise')
             noise['firstOctave'] = noise['firstOctave'] + octave_shift
+        generator['seed'] = seed
+        biome_source['seed'] = seed
         return (target, dimension)
 
     return reference_file, process_single
