@@ -7,17 +7,17 @@ description: 适配新的 Minecraft 版本（1.18 起）：新增版本目录、
 
 目标：新版本获得与既有版本相同的世界生成改造，产物只含改动过的文件。
 
-本文的流程与判定方法适用至 26.3（数据格式 121.0）；目标值、约束与验收判据见 [IMPLEMENTATION.md](../../../doc/IMPLEMENTATION.md)。更晚的版本若改动了原版文件结构，先按「判定落点」跑扫描复核，再套用本文结论。
+本文的流程与判定方法适用至 26.3（数据格式 121.0）；数据组织与补丁接口见 [PATCHING.md](../../../doc/PATCHING.md)，目标值、约束与验收判据见 [IMPLEMENTATION.md](../../../doc/IMPLEMENTATION.md)。更晚的版本若改动了原版文件结构，先按「判定落点」跑扫描复核，再套用本文结论。
 
 ## 边界
 
-- 本仓库覆盖 1.18 起的 `worldgen/` 布局。1.17 及以前用 `dimension/*.json` 的 `biome_source` 与 `noise_settings` 的 `noise` 块，机制不同，不适用本流程。
+- 本仓库覆盖 1.18 起的 `worldgen/` 布局。1.17 及以前用 `dimension/*.json` 的 `biome_source` 与 `noise_settings` 的 `noise` 块，机制不同：走 `patch_lib/worldgen_legacy.py` 与 `generator/biome_projection.py`，落点见 [IMPLEMENTATION.md](../../../doc/IMPLEMENTATION.md) 的「旧机制：四轴投影」，不适用本文的 overlay 流程。
 - 字段名、目录名与语法形态的差异以版本差异扫描和构建时的工厂校验为准，不靠记忆版本号。工厂只接受它识别得出的结构，形态不符即报错；此时在 `patch_lib/` 增加该形态的处理，不放宽校验。
 
 ## 事实来源
 
-- 原版文件与版本差异扫描工具在 `ref/`，见 `AGENTS.md` 的「关键目录」。
-- 数据包导出不含 `worldgen/` 的版本取同版本的官方 worldgen dump；反编译产物自 1.20.1 起含 `worldgen/`。
+- 原版文件与版本差异扫描工具在 `ref/`，只读，内容布局不在仓库内描述。
+- 数据包导出不含 `worldgen/` 的版本，改用目标版本的官方世界生成数据作基线。
 - 原版资源统一用包内相对路径描述，如 `data/minecraft/worldgen/noise_settings/overworld.json`；类用 `net/minecraft/...`。
 - 数据格式取目标版本游戏元数据的 `pack_version`：`data_major` 与 `data_minor`，写成 `[major, minor]`。
 - 文件在哪些版本之间变化，用版本差异扫描工具查，不要凭版本号推断。
@@ -67,26 +67,7 @@ OVERLAYS = [
 - 终点取目标内容仍然正确的最后版本；被 overlay 接管的目标不影响主包终点。
 - 目标没有 `(anchor)` 段时，说明该目录所带的基线与 anchor 版本不一致，先修基线再定区间。
 
-静态版本目录迁移为补丁时，按同一流程处理：每个改动过的目标一条「基线 + 补丁」，删除对应的整份 JSON，产物在迁移前后应等价。迁移进度与已知偏差见 [PROGRESS.md](../../../doc/PROGRESS.md)。
-
-## 基线
-
-- 只把与前一版基线不同的文件放进 `common/vanilla/<版本>/`；其余文件继续用前一版目录。这里的「不同」指解析后不相等，字段顺序与空白不同不算变化。基线目录以内容所属版本命名，与补丁所在的版本目录无关。
-- 文件名扁平化为 `<类别>__<标识>.json`：`worldgen/` 之后的路径用 `__` 连接，`worldgen_26.source_name` 生成同样的名字。战利品表省略子目录，名字在补丁里显式给出（`loot_table__enderman.json`）。
-- 新增基线时直接复制目标版本原版文件的原始字节，不经 shell 重定向，也不先反序列化再写回：反序列化会改键序与格式，使基线不再是该版本原版文件的拷贝。
-- 共享的包描述在 `common/pack.mcmeta`，版本只提供格式字段。
-
-## 补丁
-
-- 补丁必须声明 `TYPE = 'json'`，暴露 `reference_file` 与 `process_single` 或 `process_multi`。
-- 目标路径相对包根书写，产物因此可以落在本体，也可以落在 overlay 目录。
-- `dispatch.make(sources, patchers)` 生成三个入口：`sources` 是目标路径到 `common/` 相对路径的映射，`patchers` 是目标路径到处理函数的映射；未登记的目标报错。
-- 处理函数由工厂提供：`worldgen_26.terrain`、`worldgen_26.structure`、`worldgen_26.placed_feature`、`loot_table.make`、`mcmeta.make`。
-- 数值只写进 `patch_lib/tuning.py`；版本补丁只写落点：目录、参与的集合清单、基线文件名、格式字段。
-- 工厂会校验输入形态（如内联 `shifted_noise`、`random_spread`、`set_count`），形态不符即报错。复用工厂前先确认目标版本的字段结构；形态不同时在 `patch_lib` 增加该形态的处理，不放宽校验。
-- `1_18_2/` 与 `1_20/` 是整份静态 JSON，不读 `tuning.py`；迁移时按本节改写为基线加补丁。
-
-目标值、约束与验收判据见 [IMPLEMENTATION.md](../../../doc/IMPLEMENTATION.md)。
+静态版本目录迁移为补丁时，按同一流程处理：每个改动过的目标一条「基线 + 补丁」，删除对应的整份 JSON，产物在迁移前后应等价。`1_18_2/` 与 `1_20/` 目前仍是整份静态 JSON，不读 `tuning.py`，迁移时同样改写。迁移进度与已知偏差见 [PROGRESS.md](../../../doc/PROGRESS.md)。
 
 ## 注册
 
@@ -112,3 +93,4 @@ OVERLAYS = [
 - 把不同起点的文件塞进一个 overlay，区间只能取其中一段。
 - 在新版本补丁里重复写数值，之后调 `tuning.py` 时漏掉该版本。
 - 沿用 1.17 的 `noise_settings.noise` 或 `dimension` 落点处理 1.18+ 版本。
+- 反过来用 1.18+ 的 `density_function`、`structure_set` 或 `placed_feature` 落点处理 1.16/1.17。
