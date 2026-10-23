@@ -10,7 +10,7 @@ the two cannot drift.
 
 from pathlib import Path
 
-from patch_lib import dispatch, tuning, worldgen_26
+from patch_lib import dispatch, tuning, worldgen
 
 TYPE = 'json'
 
@@ -22,7 +22,7 @@ TARGET = Path('data/minecraft/worldgen/noise_settings/nether.json')
 
 reference_file, process_single, process_multi = dispatch.make(
     {TARGET: VANILLA_DIR / 'noise_settings__nether.json'},
-    {TARGET: worldgen_26.nether_climate(
+    {TARGET: worldgen.nether_climate(
         climate_fields=tuning.NETHER_CLIMATE_FIELDS,
         xz_scale=tuning.XZ_SCALE_NETHER,
     )},

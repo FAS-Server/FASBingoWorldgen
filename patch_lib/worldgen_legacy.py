@@ -1,6 +1,6 @@
 """Shared implementation of the pre-1.18 worldgen patches.
 
-Before 1.18 the data format differs from the one `worldgen_26` handles:
+Before 1.18 the data format differs from the one `patch_lib.worldgen` handles:
 
 * the overworld biome source is either `vanilla_layered` (1.16, 1.17 vanilla) or
   an inline four-axis `multi_noise` table; there is no `worldgen/biome`-less

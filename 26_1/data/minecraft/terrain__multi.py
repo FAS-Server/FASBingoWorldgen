@@ -7,7 +7,7 @@ belong to a version, because directory names move between versions.
 
 from pathlib import Path
 
-from patch_lib import tuning, worldgen_26
+from patch_lib import tuning, worldgen
 
 TYPE = 'json'
 
@@ -30,7 +30,7 @@ TERRAIN_DENSITY_FUNCTIONS = (
 
 # The implementation is shared with the other 26.x versions; `tuning` holds the
 # knobs, this file holds the targets.
-reference_file, process_single, process_multi = worldgen_26.terrain(
+reference_file, process_single, process_multi = worldgen.terrain(
     vanilla_dir=VANILLA_DIR,
     overworld_settings=OVERWORLD_SETTINGS,
     nether_settings=NETHER_SETTINGS,

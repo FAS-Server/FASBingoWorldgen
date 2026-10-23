@@ -197,6 +197,7 @@ $$y_0 = 128 + 128 \cdot (offset_{const} + offset_{spline})$$
 ### 版本差异
 
 - 1.18.2 的起伏 spline 内嵌在噪声参数里，1.19 起才是独立的密度函数文件。
+- 1.18.2 没有 `offset.json` 与 `jaggedness.json`，两者在 `depth.json` 与 `sloped_cheese.json` 里写成 `terrain_shaper_spline`，点集在 `TerrainShaper` 而不是数据包里。补丁把点集展开成独立的 `minecraft:spline` 文件（`offset`、`jaggedness`，另有 `ridges_folded`），并把内联节点改为引用；`factor` 保持原版，`RELIEF_FACTOR` 为哨兵时不进产物。该版的 `spline` 类型要求 `min_value` / `max_value`（1.19 移除），取原 `terrain_shaper_spline` 的声明值。
 - 1.17 及以前没有独立的密度函数文件，本项不适用。1.16.5 的 `bottom_slide` 属旧机制，该版初始密度公式未重写，把它改为与新版配套的值只会把底部若干格强制实心，压掉该区间的洞穴与矿脉，应保持原版。
 
 ### 验收

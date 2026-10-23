@@ -14,7 +14,7 @@ copy.
 
 from pathlib import Path
 
-from patch_lib import dispatch, tuning, worldgen_26
+from patch_lib import dispatch, tuning, worldgen
 
 TYPE = 'json'
 
@@ -40,10 +40,10 @@ CLIMATE_FUNCTIONS = (
     Path('data/minecraft/worldgen/density_function/overworld/vegetation.json'),
 )
 
-noise_patcher = worldgen_26.noise_frequency(xz_scale=tuning.XZ_SCALE_OVERWORLD)
+noise_patcher = worldgen.noise_frequency(xz_scale=tuning.XZ_SCALE_OVERWORLD)
 
 PATCHERS = {
-    OVERWORLD_SETTINGS: worldgen_26.overworld_climate(
+    OVERWORLD_SETTINGS: worldgen.overworld_climate(
         inline_climate_fields=(),
         xz_scale=tuning.XZ_SCALE_OVERWORLD,
         underground_relief=tuning.UNDERGROUND_RELIEF,
@@ -54,17 +54,17 @@ PATCHERS = {
 TARGETS = [OVERWORLD_SETTINGS, *DENSITY_FUNCTIONS, *CLIMATE_FUNCTIONS]
 if tuning.RELIEF_HIGHLAND != 1.0:
     TARGETS.append(OFFSET)
-    PATCHERS[OFFSET] = worldgen_26.relief_positive(tuning.RELIEF_HIGHLAND)
+    PATCHERS[OFFSET] = worldgen.relief_positive(tuning.RELIEF_HIGHLAND)
 if tuning.RELIEF_FACTOR != 1.0:
     TARGETS.append(FACTOR)
-    PATCHERS[FACTOR] = worldgen_26.relief_above_one(tuning.RELIEF_FACTOR)
+    PATCHERS[FACTOR] = worldgen.relief_above_one(tuning.RELIEF_FACTOR)
 if tuning.RELIEF_JAGGED != 1.0:
     TARGETS.append(JAGGEDNESS)
-    PATCHERS[JAGGEDNESS] = worldgen_26.relief_scale(tuning.RELIEF_JAGGED)
+    PATCHERS[JAGGEDNESS] = worldgen.relief_scale(tuning.RELIEF_JAGGED)
 
 reference_file, process_single, process_multi = dispatch.make(
     {
-        target: VANILLA_DIR / worldgen_26.source_name(target)
+        target: VANILLA_DIR / worldgen.source_name(target)
         for target in TARGETS
     },
     PATCHERS,

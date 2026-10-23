@@ -10,7 +10,7 @@ the two cannot drift.
 
 from pathlib import Path
 
-from patch_lib import dispatch, tuning, worldgen_26
+from patch_lib import dispatch, tuning, worldgen
 
 TYPE = 'json'
 
@@ -22,7 +22,7 @@ TARGET = Path('data/minecraft/worldgen/noise_settings/overworld.json')
 
 reference_file, process_single, process_multi = dispatch.make(
     {TARGET: VANILLA_DIR / 'noise_settings__overworld.json'},
-    {TARGET: worldgen_26.overworld_climate(
+    {TARGET: worldgen.overworld_climate(
         inline_climate_fields=tuning.INLINE_CLIMATE_FIELDS,
         xz_scale=tuning.XZ_SCALE_OVERWORLD,
         underground_relief=tuning.UNDERGROUND_RELIEF,

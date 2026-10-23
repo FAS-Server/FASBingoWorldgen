@@ -7,7 +7,7 @@ exist differs between versions.
 
 from pathlib import Path
 
-from patch_lib import tuning, worldgen_26
+from patch_lib import tuning, worldgen
 
 TYPE = 'json'
 
@@ -64,7 +64,7 @@ DIMENSION_SETS = {
 
 # The implementation is shared with the other 26.x versions; `tuning` holds the
 # factors and overrides, this file holds the targets.
-reference_file, process_single, process_multi = worldgen_26.structure(
+reference_file, process_single, process_multi = worldgen.structure(
     vanilla_dir=VANILLA_DIR,
     structure_dir=STRUCTURE_DIR,
     structure_set_dir=STRUCTURE_SET_DIR,
