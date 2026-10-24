@@ -4,7 +4,7 @@ This is the data model 1.18 introduced and every later version keeps: the
 climate axes are noise nodes referenced from `noise_router`, the relief is a
 set of cubic splines, and structures and placed features live in their own
 directories. Versions differ in spelling and in which files exist, not in the
-model, so the same functions serve 1.18.2 through 26.3.
+model, so the same functions serve every version that keeps it.
 
 A version patch only lists target paths and passes the values from
 `patch_lib/tuning.py`, so it imports the flat names re-exported here:
@@ -20,7 +20,7 @@ The modules behind them:
 - `relief`: the offset, factor and jaggedness splines.
 - `structure`: structure set spacing and separation.
 - `placed_feature`: the monster room count and height cap.
-- `terrain`: the climate and relief patch the main 26.x pack assembles.
+- `terrain`: the climate and relief patch of the plain layout.
 
 The pre-1.18 layout is different enough to live in `patch_lib/worldgen_legacy`.
 """

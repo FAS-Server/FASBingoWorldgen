@@ -1,10 +1,13 @@
-"""The combined terrain patch of the main 26.x pack.
+"""The combined terrain patch of a version with the plain layout.
 
-Only `26_1/data/minecraft/terrain__multi.py` uses it. The 1.18.2 patch and the
-26.2/26.3 overlays assemble their own tables with the same building blocks,
-because they need targets this helper does not model: 1.18.2 substitutes the
-transcribed relief splines, and an overlay replaces a single file. The helper is
-kept because a later version with the plain layout can reuse it.
+A version can use this when its vanilla `offset` and `jaggedness` are density
+function files of their own, so the relief knobs have something to scale, and
+the climate axes are the only fields inlined in `noise_router`.
+
+Versions that need something else assemble their own table from the same
+building blocks: one whose relief spline is still inlined has to transcribe the
+points first (`relief.terrain_shaper_reference`), and an overlay replaces
+individual files rather than the whole set.
 """
 
 from pathlib import Path
