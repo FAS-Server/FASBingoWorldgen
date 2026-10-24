@@ -67,7 +67,7 @@ OVERLAYS = [
 - 终点取目标内容仍然正确的最后版本；被 overlay 接管的目标不影响主包终点。
 - 目标没有 `(anchor)` 段时，说明该目录所带的基线与 anchor 版本不一致，先修基线再定区间。
 
-静态版本目录迁移为补丁时，按同一流程处理：每个改动过的目标一条「基线 + 补丁」，删除对应的整份 JSON，产物在迁移前后应等价。`1_18_2/` 与 `1_20/` 目前仍是整份静态 JSON，不读 `tuning.py`，迁移时同样改写。迁移进度与已知偏差见 [PROGRESS.md](../../../doc/PROGRESS.md)。
+静态版本目录迁移为补丁时，按同一流程处理：每个改动过的目标一条「基线 + 补丁」，删除对应的整份 JSON。`1_18_2/` 目前仍是整份静态 JSON，不读 `tuning.py`，迁移时同样改写。旧静态目录若沿用了与 `tuning.py` 不同的数值，迁移会按 `tuning.py` 重算，此时产物不与迁移前等价，变化字段要逐项列出并确认是预期修正。迁移进度与已知偏差见 [PROGRESS.md](../../../doc/PROGRESS.md)。
 
 ## 注册
 
@@ -75,6 +75,7 @@ OVERLAYS = [
 - 目录名与产物名取首个支持的版本；后续兼容版本不新建目录，只延长区间或加 overlay。
 - overlay 只登记 `overlays.entries`，不新增 `MC_*`。
 - 版本目录至少有一个 `pack___mcmeta.py`，由 `mcmeta.make` 生成：26.1 前传 `pack_format`，之后传 `min_format` 与 `max_format`，需要 overlay 时传 `overlays`。
+- 内容相同而数据格式号不同的多个版本共用一个包：26.1 前传首个格式号为 `pack_format`，再用 `supported_formats` 覆盖整段（如 1.20 的 `15` ~ `41`），不为每个格式号建目录。区间必须包含 `pack_format`，较早的版本只读 `pack_format`，较新的版本读区间。
 
 ## 验收
 
