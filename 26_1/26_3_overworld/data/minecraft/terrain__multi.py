@@ -14,7 +14,7 @@ copy.
 
 from pathlib import Path
 
-from patch_lib import dispatch, tuning, worldgen
+from patch_lib import tuning, worldgen
 
 TYPE = 'json'
 
@@ -40,32 +40,23 @@ CLIMATE_FUNCTIONS = (
     Path('data/minecraft/worldgen/density_function/overworld/vegetation.json'),
 )
 
-noise_patcher = worldgen.noise_frequency(xz_scale=tuning.XZ_SCALE_OVERWORLD)
+# `FACTOR` is passed for symmetry, but `RELIEF_FACTOR` is 1.0, so the file is
+# not a target. Enabling it needs the 26.3 vanilla `factor` back under
+# `vanilla/26_3`.
 
-PATCHERS = {
-    OVERWORLD_SETTINGS: worldgen.overworld_climate(
-        inline_climate_fields=(),
-        xz_scale=tuning.XZ_SCALE_OVERWORLD,
-        underground_relief=tuning.UNDERGROUND_RELIEF,
-    ),
-    **{target: noise_patcher for target in (*DENSITY_FUNCTIONS, *CLIMATE_FUNCTIONS)},
-}
-
-TARGETS = [OVERWORLD_SETTINGS, *DENSITY_FUNCTIONS, *CLIMATE_FUNCTIONS]
-if tuning.RELIEF_HIGHLAND != 1.0:
-    TARGETS.append(OFFSET)
-    PATCHERS[OFFSET] = worldgen.relief_positive(tuning.RELIEF_HIGHLAND)
-if tuning.RELIEF_FACTOR != 1.0:
-    TARGETS.append(FACTOR)
-    PATCHERS[FACTOR] = worldgen.relief_above_one(tuning.RELIEF_FACTOR)
-if tuning.RELIEF_JAGGED != 1.0:
-    TARGETS.append(JAGGEDNESS)
-    PATCHERS[JAGGEDNESS] = worldgen.relief_scale(tuning.RELIEF_JAGGED)
-
-reference_file, process_single, process_multi = dispatch.make(
-    {
-        target: VANILLA_DIR / worldgen.source_name(target)
-        for target in TARGETS
-    },
-    PATCHERS,
+# The nether keeps using the main pack: 26_3_nether replaces its settings file.
+reference_file, process_single, process_multi = worldgen.terrain(
+    vanilla_dir=VANILLA_DIR,
+    overworld_settings=OVERWORLD_SETTINGS,
+    offset=OFFSET,
+    factor=FACTOR,
+    jaggedness=JAGGEDNESS,
+    density_functions=DENSITY_FUNCTIONS,
+    climate_functions=CLIMATE_FUNCTIONS,
+    inline_climate_fields=(),
+    xz_scale_overworld=tuning.XZ_SCALE_OVERWORLD,
+    relief_highland=tuning.RELIEF_HIGHLAND,
+    relief_factor=tuning.RELIEF_FACTOR,
+    relief_jagged=tuning.RELIEF_JAGGED,
+    underground_relief=tuning.UNDERGROUND_RELIEF,
 )

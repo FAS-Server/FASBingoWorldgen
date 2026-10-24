@@ -1,7 +1,10 @@
 """26.1 placed feature patch: which feature is retuned, and by what.
 
 The counts live in `patch_lib/tuning.py` and are shared by every patched
-version. Only the target directory belongs to a version.
+version. Only the target directory and the baseline belong to a version.
+
+The two files did not change since 1.18.2, so they keep that baseline instead
+of a copy under `vanilla/26_1`.
 """
 
 from pathlib import Path
@@ -10,7 +13,7 @@ from patch_lib import tuning, worldgen
 
 TYPE = 'json'
 
-VANILLA_DIR = Path('vanilla/26_1')
+VANILLA_DIR = Path('vanilla/1_18_2')
 
 PLACED_FEATURE_DIR = Path('data/minecraft/worldgen/placed_feature')
 

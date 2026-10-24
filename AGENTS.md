@@ -24,7 +24,6 @@
 | `doc/IMPLEMENTATION.md` | 每项改动的目标值、约束与验收判据 |
 | `doc/PATCHING.md` | 补丁与数据怎么组织 |
 | `.github/skills/adapt-mc-version/SKILL.md` | 适配一个新版本的步骤 |
-| `doc/PROGRESS.md` | 各版本的完成情况（迁移完成后删除） |
 
 ## 构建与验证
 

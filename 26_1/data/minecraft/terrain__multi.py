@@ -2,7 +2,11 @@
 
 The knobs themselves live in `patch_lib/tuning.py` and are shared by every
 patched version, so one edit there reaches all of them. Only the target paths
-belong to a version, because directory names move between versions.
+and which baseline each file comes from belong to a version.
+
+Only `noise_settings/nether` changed in 26.1, so it is the one baseline stored
+under `vanilla/26_1`; the rest still match the version that introduced their
+current content.
 """
 
 from pathlib import Path
@@ -11,7 +15,8 @@ from patch_lib import tuning, worldgen
 
 TYPE = 'json'
 
-VANILLA_DIR = Path('vanilla/26_1')
+# Default baseline: the three named climate functions last changed in 1.18.2.
+VANILLA_DIR = Path('vanilla/1_18_2')
 
 OVERWORLD_SETTINGS = Path('data/minecraft/worldgen/noise_settings/overworld.json')
 NETHER_SETTINGS = Path('data/minecraft/worldgen/noise_settings/nether.json')
@@ -28,8 +33,22 @@ TERRAIN_DENSITY_FUNCTIONS = (
     Path('data/minecraft/worldgen/density_function/overworld/ridges.json'),
 )
 
+# Files whose 26.1 content differs from the 1.18.2 baseline. The overworld
+# settings did not change since 1.21.9, the relief splines since 1.19, and the
+# nether settings changed in 26.1 itself.
+SOURCE_OVERRIDES = {
+    OVERWORLD_SETTINGS: Path('vanilla/1_21_9') / worldgen.source_name(OVERWORLD_SETTINGS),
+    NETHER_SETTINGS: Path('vanilla/26_1') / worldgen.source_name(NETHER_SETTINGS),
+    OFFSET: Path('vanilla/1_19') / worldgen.source_name(OFFSET),
+    JAGGEDNESS: Path('vanilla/1_19') / worldgen.source_name(JAGGEDNESS),
+}
+
+# `FACTOR` is absent because `RELIEF_FACTOR` is 1.0, so the file is not a
+# target. Raising the knob needs the 26.1 vanilla `factor`, which no older
+# baseline matches: store it under `vanilla/26_1` and add the override.
+
 # The implementation is shared with the other 26.x versions; `tuning` holds the
-# knobs, this file holds the targets.
+# knobs, this file holds the targets and their baselines.
 reference_file, process_single, process_multi = worldgen.terrain(
     vanilla_dir=VANILLA_DIR,
     overworld_settings=OVERWORLD_SETTINGS,
@@ -46,4 +65,5 @@ reference_file, process_single, process_multi = worldgen.terrain(
     relief_factor=tuning.RELIEF_FACTOR,
     relief_jagged=tuning.RELIEF_JAGGED,
     underground_relief=tuning.UNDERGROUND_RELIEF,
+    source_overrides=SOURCE_OVERRIDES,
 )

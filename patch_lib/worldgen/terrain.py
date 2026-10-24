@@ -23,7 +23,7 @@ def terrain(
         *,
         vanilla_dir: Path,
         overworld_settings: Path,
-        nether_settings: Path,
+        nether_settings: ty.Optional[Path] = None,
         offset: Path,
         factor: Path,
         jaggedness: Path,
@@ -31,8 +31,8 @@ def terrain(
         climate_functions: ty.Iterable[Path] = (),
         xz_scale_overworld: float,
         inline_climate_fields: ty.Iterable[str],
-        xz_scale_nether: float,
-        nether_climate_fields: ty.Iterable[str],
+        xz_scale_nether: ty.Optional[float] = None,
+        nether_climate_fields: ty.Iterable[str] = (),
         relief_highland: float,
         relief_factor: float,
         relief_jagged: float,
@@ -50,11 +50,26 @@ def terrain(
 
     A relief parameter of 1.0 drops its file from the pack instead of emitting a
     copy identical to vanilla, so it also decides whether the file is a source.
+
+    An overlay that replaces only the overworld passes `nether_settings=None`;
+    the nether target and its knobs are then left out, so the main pack keeps
+    providing the nether.
     '''
     density_functions = tuple(density_functions)
     climate_functions = tuple(climate_functions)
 
-    targets = [overworld_settings, nether_settings]
+    if nether_settings is None:
+        if xz_scale_nether is not None or nether_climate_fields:
+            raise ValueError(
+                'nether_settings is None, so xz_scale_nether and '
+                'nether_climate_fields must be omitted'
+            )
+    elif xz_scale_nether is None:
+        raise ValueError('nether_settings needs xz_scale_nether')
+
+    targets = [overworld_settings]
+    if nether_settings is not None:
+        targets.append(nether_settings)
     if relief_highland != 1.0:
         targets.append(offset)
     if relief_factor != 1.0:
@@ -69,16 +84,16 @@ def terrain(
         xz_scale=xz_scale_overworld,
         underground_relief=underground_relief,
     )
-    patch_nether = climate_patch.nether_climate(
-        climate_fields=nether_climate_fields,
-        xz_scale=xz_scale_nether,
-    )
     patch_noise = climate_patch.noise_frequency(xz_scale=xz_scale_overworld)
 
     patchers: ty.Dict[Path, dispatch.Patcher] = {
         overworld_settings: patch_overworld,
-        nether_settings: patch_nether,
     }
+    if nether_settings is not None:
+        patchers[nether_settings] = climate_patch.nether_climate(
+            climate_fields=nether_climate_fields,
+            xz_scale=xz_scale_nether,
+        )
     if relief_highland != 1.0:
         patchers[offset] = relief_patch.relief_positive(relief_highland)
     if relief_factor != 1.0:
