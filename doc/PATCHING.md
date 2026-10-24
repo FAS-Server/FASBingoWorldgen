@@ -31,7 +31,15 @@
 
 ## 包描述
 
-`common/pack.mcmeta` 是共享的包描述模板。版本补丁只提供格式字段（`pack_format` 或 `min_format`/`max_format`）与需要时的 `overlays`，描述沿用模板，需改动时显式传入。
+`common/pack.mcmeta` 是共享的包描述模板。版本补丁只提供格式字段与需要时的 `overlays`，描述沿用模板，需改动时显式传入。
+
+字段写法由该包覆盖的数据格式区间决定：
+
+- 全部落在 26.1 前：`pack_format` 写首个格式号，`supported_formats` 覆盖整段。区间必须包含 `pack_format`；较早的版本只读 `pack_format`，较新的版本读区间。
+- 全部落在 26.1 起：`min_format` 与 `max_format`。
+- 跨越两者：两套都写，且区间必须一致。新版会校验 `supported_formats` 的两端与 `min_format`/`max_format` 相符，并要求 `pack_format` 落在区间内；只写新字段会让旧版报「缺少 `pack_format`」。
+
+overlay 条目按同一规则：26.1 前写 `formats`，26.1 起写 `min_format`/`max_format`，跨越时两处都写。
 
 ## 旧版原版数据
 

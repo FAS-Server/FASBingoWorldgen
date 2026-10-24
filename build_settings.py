@@ -52,6 +52,7 @@ MC_1_17_1 = {'path': '1_17_1/', 'name': 'FASBingoWorldgen_1.17.1_{version}', 've
 MC_1_18_2 = {'path': '1_18_2/', 'name': 'FASBingoWorldgen_1.18.2_{version}', 'version': PROJECT_VERSION}
 MC_1_19 = {'path': '1_19/', 'name': 'FASBingoWorldgen_1.19_{version}', 'version': PROJECT_VERSION}
 MC_1_20 = {'path': '1_20/', 'name': 'FASBingoWorldgen_1.20_{version}', 'version': PROJECT_VERSION}
+MC_1_21 = {'path': '1_21/', 'name': 'FASBingoWorldgen_1.21_{version}', 'version': PROJECT_VERSION}
 MC_26_1 = {'path': '26_1/', 'name': 'FASBingoWorldgen_26.1_{version}', 'version': PROJECT_VERSION}
 
 

@@ -72,10 +72,12 @@ OVERLAYS = [
 ## 注册
 
 - 新版本目录在 `build_settings.py` 增加 `MC_*` 常量；声明顺序即构建顺序，只能引用声明在前的版本。
-- 目录名与产物名取首个支持的版本；后续兼容版本不新建目录，只延长区间或加 overlay。
+- 目录名与产物名取首个支持的版本；后续兼容版本、以及内容相同而格式号不同的版本，都不新建目录，只延长区间、加 overlay 或改格式字段。
 - overlay 只登记 `overlays.entries`，不新增 `MC_*`。
-- 版本目录至少有一个 `pack___mcmeta.py`，由 `mcmeta.make` 生成：26.1 前传 `pack_format`，之后传 `min_format` 与 `max_format`，需要 overlay 时传 `overlays`。
-- 内容相同而数据格式号不同的多个版本共用一个包：26.1 前传首个格式号为 `pack_format`，再用 `supported_formats` 覆盖整段（如 1.20 的 `15` ~ `41`），不为每个格式号建目录。区间必须包含 `pack_format`，较早的版本只读 `pack_format`，较新的版本读区间。
+- 版本目录至少有一个 `pack___mcmeta.py`，由 `mcmeta.make` 生成；字段按该包覆盖的数据格式区间选，规则见 [PATCHING.md](../../../doc/PATCHING.md) 的「包描述」。三种情形：
+  - 全部落在 26.1 前：`pack_format` 写首个格式号，`supported_formats` 覆盖整段，如 1.20 的 `15` ~ `41`。
+  - 全部落在 26.1 起：`min_format` 与 `max_format`。
+  - 跨越两者：两套都写，区间一致。1.21 系列即此类（1.21 ~ 1.21.8 用前者，1.21.9 起用后者）。
 
 ## 验收
 
