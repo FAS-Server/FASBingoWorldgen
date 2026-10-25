@@ -6,10 +6,12 @@ inlined in `noise_router`, so they are scaled there; `continents`, `erosion` and
 frequency for the biome source and the terrain at once, and the two cannot
 drift.
 
-Versions spell the node differently: 1.18 through 26.2 use `shifted_noise`
+Versions spell the nodes differently: 1.18 through 26.2 use `shifted_noise`
 wrapped in `flat_cache`, 26.3 renames them to `noise` wrapped in `cache` and
-moves the two climate fields into files of their own. Both spellings are
-accepted here, which is why a version patch only lists its own target paths.
+moves the two climate fields into files of their own. 26.3 also renames the
+operands of the binary nodes from `argument1`/`argument2` to `left`/`right`.
+Each spelling is read back from the document itself, which is why a version
+patch only lists its own target paths.
 """
 
 from pathlib import Path
@@ -23,6 +25,22 @@ NOISE_TYPES = ('minecraft:noise', 'minecraft:shifted_noise')
 # Cache wrappers around a noise node. 26.3 renamed `flat_cache` to `cache` and
 # its `argument` key to `input`.
 CACHE_TYPES = ('minecraft:cache', 'minecraft:flat_cache')
+
+# Binary operation nodes. 26.3 renamed their operands from
+# `argument1`/`argument2` to `left`/`right`.
+BINARY_TYPES = (
+    'minecraft:add',
+    'minecraft:sub',
+    'minecraft:mul',
+    'minecraft:min',
+    'minecraft:max',
+)
+
+# Operand key spellings of a binary node, newest first.
+OPERAND_KEYS = (
+    ('left', 'right'),
+    ('argument1', 'argument2'),
+)
 
 
 def _noise_node(relative: Path, json_content: ty.Dict) -> ty.Dict:
@@ -66,6 +84,42 @@ def _scale_inline_fields(
         noise['xz_scale'] = xz_scale
 
 
+def _operand_keys(relative: Path, json_content: ty.Dict) -> ty.Tuple[str, str]:
+    '''
+    Returns the operand key names binary nodes use in this document.
+
+    The version that reads the file decides the spelling, so it is learnt from
+    a binary node already present instead of assumed.
+    '''
+    pending = [json_content]
+    while pending:
+        node = pending.pop()
+        if isinstance(node, dict):
+            if node.get('type') in BINARY_TYPES:
+                for keys in OPERAND_KEYS:
+                    if all(key in node for key in keys):
+                        return keys
+            pending.extend(node.values())
+        elif isinstance(node, list):
+            pending.extend(node)
+    raise TypeError(
+        f'Found no binary density function in {relative} to read the '
+        f'operand keys from'
+    )
+
+
+def _binary(
+        relative: Path,
+        json_content: ty.Dict,
+        operator: str,
+        first_operand: ty.Any,
+        second_operand: ty.Any,
+    ) -> ty.Dict:
+    '''Builds a binary density function node spelled as the document is.'''
+    first, second = _operand_keys(relative, json_content)
+    return {'type': operator, first: first_operand, second: second_operand}
+
+
 def overworld_climate(
         *,
         inline_climate_fields: ty.Iterable[str],
@@ -99,11 +153,13 @@ def overworld_climate(
                 raise TypeError(
                     f'Expected a reference in {relative} depth, got {router["depth"]!r}'
                 )
-            router['depth'] = {
-                'type': 'minecraft:mul',
-                'argument1': 1.0 / underground_relief,
-                'argument2': router['depth'],
-            }
+            router['depth'] = _binary(
+                relative,
+                json_content,
+                'minecraft:mul',
+                1.0 / underground_relief,
+                router['depth'],
+            )
         return json_content
 
     return patch
