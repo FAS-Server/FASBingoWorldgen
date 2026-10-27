@@ -159,6 +159,7 @@
 | 高地高度 | `offset` 正值叶乘 `0.45` | 地表 `25..256` | `density_function/overworld/offset.json` |
 | 峰顶细节 | `jaggedness` 全部叶乘 `0.45` | 最大叶值 `0.63` | `density_function/overworld/jaggedness.json` |
 | 陡坡 | 系数 `1.0`，该文件不进产物 | `0.625..6.3` | `density_function/overworld/factor.json` |
+| factor 邻域平滑 | 半径 `1`（3×3 quart 盒式平均） | 单 quart 取值 | `density_function/overworld/factor.json` 与 `density_function/factor_smoothing/*.json` |
 | 地下群系带 | `depth` 引用包一层 `×1/0.9` 的 `mul` | 深暗之域在地表下 141 格 | `noise_settings/overworld.json` 的 `depth` |
 
 各项系数按同一比例取，使峰顶细节与山体高度同步缩小。系数取哨兵值时该文件不进产物，可直接与原版对照。
@@ -194,10 +195,27 @@ $$y_0 = 128 + 128 \cdot (offset_{const} + offset_{spline})$$
 
 地下群系的压缩比取 `0.9`。代价是平坦地面的地下带同步上移：平原可用深度为 `127` 格，压缩比低于约 `0.9` 时深暗之域会进入世界底部，当前取值贴近该临界。该阈值由 `offset` 的基准常量决定，换版本需重算。
 
+### factor 邻域平滑
+
+地表以上的密度可化简为 `factor × depth + base_3d_noise`，而 `depth` 每格降 `1/128`，所以噪声把地表抬高的格数约为 `128 × base_3d_noise ÷ factor`。`factor` 由三条气候轴经样条算出，且每 4×4 格（一个 quart）只取一个值；频率提高 7.2 倍后，同一 quart 可与邻格相差数倍，该格被放大成约 4 格宽、高出周围 40～60 格的孤立尖柱。
+
+修复是把 `factor` 的样条值换成周围 quart 的盒式平均：
+
+$$factor_{smoothed} = \frac{1}{(2r+1)^2}\sum_{dx,dz} factor_{spline}(x + 4dx,\ z + 4dz)$$
+
+- 平移不靠改频率，而是给噪声节点的 `shift_x` / `shift_z` 加常数。噪声坐标是 `block × xz_scale + shift`，所以平移 `4d` 格对应加 `4d × xz_scale`，该常数一律由主世界 `xz_scale` 算出，不写死。
+- 群系源不读 `factor`，因此群系布局逐格不变；平滑只改地形密度的陡缓。
+- 平移后的轴必须写成命名密度函数文件（`factor_smoothing/*.json`），不能在 `factor.json` 里内联：样条每一层都重算坐标函数，内联副本会被重复计算几十次，命名引用才共享同一份缓存。
+- 副本放在独立命名空间，`data/minecraft/` 下每个文件仍能对应一个原版文件，版本差异扫描与「未列出同名文件零差异」的验收判据因此不受影响。
+- 中心点为原样条本身，平均里因此始终含原版曲线。与 `RELIEF_FACTOR` 组合时先缩放叶值再平均。
+
 ### 版本差异
 
 - 1.18.2 的起伏 spline 内嵌在噪声参数里，1.19 起才是独立的密度函数文件。
 - 1.18.2 没有 `offset.json` 与 `jaggedness.json`，两者在 `depth.json` 与 `sloped_cheese.json` 里写成 `terrain_shaper_spline`，点集在 `TerrainShaper` 而不是数据包里。补丁把点集展开成独立的 `minecraft:spline` 文件（`offset`、`jaggedness`，另有 `ridges_folded`），并把内联节点改为引用；`factor` 保持原版，`RELIEF_FACTOR` 为哨兵时不进产物。该版的 `spline` 类型要求 `min_value` / `max_value`（1.19 移除），取原 `terrain_shaper_spline` 的声明值。
+- 1.18.2 的原版 `factor` 是 `terrain_shaper_spline`，它自己从 `weirdness` 算出折后的脊值，所以平滑只需平移 `continents` / `erosion` / `ridges` 三条轴，24 个副本，没有 `ridges_folded` 副本。若同时打开 `RELIEF_FACTOR`，`factor` 源换成誊写的 `minecraft:spline` 树，那棵树把折后值写成引用，这时才需要 8 个 `ridges_folded` 副本（共 32 个）；誊写树是纯样条，没有节点可读操作数拼写，因此补丁显式给出该版的写法。
+- 26.3 把 `shifted_noise` 改名 `noise`、`flat_cache` 改名 `cache`，二元节点的操作数从 `argument1` / `argument2` 改为 `left` / `right`，所以主包里的平滑文件在 26.3 上一律无法解析。26.3 overlay 必须输出完整一套：`factor.json` 加全部副本，文件名与主包逐字相同。
+- 副本命名沿用数据的结构而不是版本的：同一命名空间下按轴与偏移命名，中心偏移不生成副本，`factor` 直接引用原版轴。
 - 1.17 及以前没有独立的密度函数文件，本项不适用。1.16.5 的 `bottom_slide` 属旧机制，该版初始密度公式未重写，把它改为与新版配套的值只会把底部若干格强制实心，压掉该区间的洞穴与矿脉，应保持原版。
 
 ### 验收
@@ -205,7 +223,12 @@ $$y_0 = 128 + 128 \cdot (offset_{const} + offset_{spline})$$
 - 海洋与海岸：`offset` 负值叶逐字段等于原版，海平面附近的地表高度不变。
 - 平原：`jaggedness` 叶值为零处的地形逐块等于原版。
 - 地下：`final_density`、`preliminary_surface_level`、`surface_rule` 与基线逐字段相同；`noise_router` 的 `depth` 是引用外加一层 `mul`，命名密度函数 `overworld/depth` 本身不变。
-- 分段映射：`offset` 的负值叶、`factor` 不大于 `1.0` 的叶逐字段等于基线，零值处保持零。
+- 分段映射：`offset` 的负值叶、`factor` 的每个样条拷贝里不大于 `1.0` 的叶逐字段等于基线，零值处保持零。
+- 平滑：`factor.json` 只有一个 `mul(1/(2r+1)^2, …)` 节点，内含 `(2r+1)^2` 个样条拷贝；每个非中心拷贝与中心拷贝只在引用的轴上不同，叶值集合逐项相同。
+- 副本：`factor_smoothing/` 的文件数等于「轴数 ×（拷贝数 − 1）」，1.18.2 默认 24、其余 32；每个副本的 `xz_scale` 等于主世界取值，`shift_x` / `shift_z` 的平移常数分别等于 `4d × xz_scale`；`ridges_folded_<tag>` 只指向同 tag 的 `ridges_<tag>`；`factor.json` 引用的每个副本都在同一包（或同一 overlay 叠加后）里。
+- 26.3 overlay：`factor_smoothing/` 的文件名集合与主包完全相同。
+- 群系不变：副本只被 `factor` 引用，群系源不读 `factor`，因此群系布局逐格不变。
+- 旋钮：半径取哨兵 `0` 时所有盒平滑产物消失，其余文件与未启用时逐字段相同。
 - 不出现硬截断：高度上限仍为 `320`，峰顶不被削平，且峰顶高度低于原版上限 `256`。
 
 ## 增加结构密度

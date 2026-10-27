@@ -16,6 +16,7 @@ import typing as ty
 from .. import dispatch
 from . import climate as climate_patch
 from . import relief as relief_patch
+from . import smoothing as smoothing_patch
 from .sources import resolve
 
 
@@ -37,6 +38,9 @@ def terrain(
         relief_factor: float,
         relief_jagged: float,
         underground_relief: float,
+        factor_smoothing_radius: int = 0,
+        ridges_folded: ty.Optional[Path] = None,
+        smoothing_sources: ty.Mapping[str, Path] = {},
         source_overrides: ty.Mapping[Path, Path] = {},
     ) -> ty.Tuple[ty.Callable, ty.Callable, ty.Callable]:
     '''
@@ -51,12 +55,28 @@ def terrain(
     A relief parameter of 1.0 drops its file from the pack instead of emitting a
     copy identical to vanilla, so it also decides whether the file is a source.
 
+    A `factor_smoothing_radius` above 0 adds the smoothed `factor` and one
+    shifted copy of each climate axis per surrounding quart; the copies are new
+    files under their own namespace, and their baselines default to the axes
+    the version already patches. `ridges_folded` is the vanilla folded file the
+    spline reads, or None when the version has none of its own (1.18.2 spells
+    the folded value inside `terrain_shaper_spline`); `smoothing_sources`
+    overrides a copy's baseline when it does not come from `vanilla_dir`.
+
     An overlay that replaces only the overworld passes `nether_settings=None`;
     the nether target and its knobs are then left out, so the main pack keeps
     providing the nether.
     '''
     density_functions = tuple(density_functions)
     climate_functions = tuple(climate_functions)
+    smoothing_sources = dict(smoothing_sources)
+    source_overrides = dict(source_overrides)
+    smoothing = factor_smoothing_radius > 0
+    if factor_smoothing_radius < 0:
+        raise ValueError(
+            f'factor_smoothing_radius must not be negative, '
+            f'got {factor_smoothing_radius}'
+        )
 
     if nether_settings is None:
         if xz_scale_nether is not None or nether_climate_fields:
@@ -72,7 +92,7 @@ def terrain(
         targets.append(nether_settings)
     if relief_highland != 1.0:
         targets.append(offset)
-    if relief_factor != 1.0:
+    if relief_factor != 1.0 and not smoothing:
         targets.append(factor)
     if relief_jagged != 1.0:
         targets.append(jaggedness)
@@ -96,12 +116,32 @@ def terrain(
         )
     if relief_highland != 1.0:
         patchers[offset] = relief_patch.relief_positive(relief_highland)
-    if relief_factor != 1.0:
+    if relief_factor != 1.0 and not smoothing:
         patchers[factor] = relief_patch.relief_above_one(relief_factor)
     if relief_jagged != 1.0:
         patchers[jaggedness] = relief_patch.relief_scale(relief_jagged)
     patchers.update({target: patch_noise for target in density_functions})
     patchers.update({target: patch_noise for target in climate_functions})
+
+    if smoothing:
+        targets.append(factor)
+        patchers[factor] = smoothing_patch.smoothed_factor(
+            radius=factor_smoothing_radius,
+            relief_factor=relief_factor,
+        )
+        copies = smoothing_patch.smoothing_targets(
+            radius=factor_smoothing_radius,
+            include_ridges_folded=ridges_folded is not None,
+        )
+        for target, (axis, name, dx, dz) in copies.items():
+            targets.append(target)
+            if axis == smoothing_patch.FOLDED:
+                patchers[target] = smoothing_patch.shifted_ridges_folded(name=name)
+            else:
+                patchers[target] = smoothing_patch.shifted_axis(
+                    xz_scale=xz_scale_overworld, dx=dx, dz=dz)
+            source_overrides[target] = smoothing_sources.get(
+                axis, vanilla_dir / smoothing_patch.baseline_name(axis))
 
     return dispatch.make(
         resolve(vanilla_dir, targets, source_overrides), patchers

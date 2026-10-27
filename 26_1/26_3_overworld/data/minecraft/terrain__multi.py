@@ -26,6 +26,7 @@ OVERWORLD_SETTINGS = Path('data/minecraft/worldgen/noise_settings/overworld.json
 OFFSET = Path('data/minecraft/worldgen/density_function/overworld/offset.json')
 FACTOR = Path('data/minecraft/worldgen/density_function/overworld/factor.json')
 JAGGEDNESS = Path('data/minecraft/worldgen/density_function/overworld/jaggedness.json')
+RIDGES_FOLDED = Path('data/minecraft/worldgen/density_function/overworld/ridges_folded.json')
 
 # Named density functions shared by the biome source and the terrain.
 DENSITY_FUNCTIONS = (
@@ -40,9 +41,9 @@ CLIMATE_FUNCTIONS = (
     Path('data/minecraft/worldgen/density_function/overworld/vegetation.json'),
 )
 
-# `FACTOR` is passed for symmetry, but `RELIEF_FACTOR` is 1.0, so the file is
-# not a target. Enabling it needs the 26.3 vanilla `factor` back under
-# `vanilla/26_3`.
+# 26.3 spells `noise` and `cache` where the main pack writes `shifted_noise`
+# and `flat_cache`, so every smoothed file has to be replaced here as well, not
+# just `factor`: a copy the main pack emits would fail to parse on 26.3.
 
 # The nether keeps using the main pack: 26_3_nether replaces its settings file.
 reference_file, process_single, process_multi = worldgen.terrain(
@@ -59,4 +60,6 @@ reference_file, process_single, process_multi = worldgen.terrain(
     relief_factor=tuning.RELIEF_FACTOR,
     relief_jagged=tuning.RELIEF_JAGGED,
     underground_relief=tuning.UNDERGROUND_RELIEF,
+    factor_smoothing_radius=tuning.FACTOR_SMOOTHING_RADIUS,
+    ridges_folded=RIDGES_FOLDED,
 )

@@ -113,6 +113,18 @@ RELIEF_HIGHLAND = 0.45
 # of 6.3 becomes 1.0 + 5.3 * RELIEF_FACTOR. 1.0 is vanilla.
 RELIEF_FACTOR = 1.0
 
+# Box average of the factor spline over (2r+1)^2 quarts, one quart being four
+# blocks. factor multiplies depth, and depth falls by 1/128 per block, so the
+# surface rises by about 128 * base_3d_noise / factor; with the climate
+# frequency raised, a single quart can drop to a sixth of its neighbours and
+# become a pillar 40 to 60 blocks above everything around it. Averaging over
+# the neighbours removes those pillars without changing any frequency, and the
+# biome source never reads factor, so the biome layout is untouched.
+#
+# 0 is off: factor.json and the shifted copies are then left out of the pack.
+# 1 is a 3x3 box, which is the value tested in game.
+FACTOR_SMOOTHING_RADIUS = 1
+
 # Depth of the underground biome layers (dripstone_caves, lush_caves, deep_dark).
 # They are read from the depth axis, where one unit is 128 blocks below the
 # surface, so their absolute height follows the surface. Only the highlands are

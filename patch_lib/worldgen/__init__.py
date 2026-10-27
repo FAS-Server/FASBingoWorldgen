@@ -18,6 +18,7 @@ The modules behind them:
 - `sources`: target path -> baseline name under `common/vanilla/<version>/`.
 - `climate`: frequency of the climate axes.
 - `relief`: the offset, factor and jaggedness splines.
+- `smoothing`: the box average of `factor` over its neighbouring quarts.
 - `structure`: structure set spacing and separation.
 - `placed_feature`: the monster room count and height cap.
 - `terrain`: the climate and relief patch of the plain layout.
@@ -35,10 +36,19 @@ from .relief import (
     unchanged,
 )
 from .sources import source_name
+from .smoothing import (
+    FOLDED as SMOOTHING_FOLDED,
+    baseline_name as smoothing_baseline_name,
+    shifted_axis,
+    shifted_ridges_folded,
+    smoothed_factor,
+    smoothing_targets,
+)
 from .structure import structure
 from .terrain import terrain
 
 __all__ = [
+    'SMOOTHING_FOLDED',
     'nether_climate',
     'noise_frequency',
     'overworld_climate',
@@ -46,6 +56,11 @@ __all__ = [
     'relief_above_one',
     'relief_positive',
     'relief_scale',
+    'shifted_axis',
+    'shifted_ridges_folded',
+    'smoothed_factor',
+    'smoothing_baseline_name',
+    'smoothing_targets',
     'source_name',
     'structure',
     'terrain',

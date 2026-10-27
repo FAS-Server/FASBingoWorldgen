@@ -25,7 +25,7 @@ EXCLUDE_FILE = ['spyglass.json']
 
 
 # Datapack release version, substituted into every pack name via {version}.
-PROJECT_VERSION = '2.0.1'
+PROJECT_VERSION = '2.1.0'
 
 
 # -----------------------------------------------------------------------------

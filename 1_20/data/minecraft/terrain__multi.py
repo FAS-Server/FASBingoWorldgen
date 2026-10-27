@@ -28,6 +28,7 @@ NETHER_SETTINGS = Path('data/minecraft/worldgen/noise_settings/nether.json')
 OFFSET = Path('data/minecraft/worldgen/density_function/overworld/offset.json')
 FACTOR = Path('data/minecraft/worldgen/density_function/overworld/factor.json')
 JAGGEDNESS = Path('data/minecraft/worldgen/density_function/overworld/jaggedness.json')
+RIDGES_FOLDED = Path('data/minecraft/worldgen/density_function/overworld/ridges_folded.json')
 
 # Named density functions shared by the terrain and the biome source; scaling
 # them is what keeps both sides at the same climate frequency.
@@ -49,6 +50,13 @@ SOURCE_OVERRIDES = {
     )
 }
 
+# `ridges_folded` is not a target of its own: only the shifted copies of the
+# factor box read it, and they need the 1.19 baseline rather than 1.18.2, which
+# has no such file.
+SMOOTHING_SOURCES = {
+    'ridges_folded': Path('vanilla/1_19') / worldgen.source_name(RIDGES_FOLDED),
+}
+
 # The implementation is shared with the other patched versions; `tuning` holds
 # the knobs, this file holds the targets and their baselines.
 reference_file, process_single, process_multi = worldgen.terrain(
@@ -67,5 +75,8 @@ reference_file, process_single, process_multi = worldgen.terrain(
     relief_factor=tuning.RELIEF_FACTOR,
     relief_jagged=tuning.RELIEF_JAGGED,
     underground_relief=tuning.UNDERGROUND_RELIEF,
+    factor_smoothing_radius=tuning.FACTOR_SMOOTHING_RADIUS,
+    ridges_folded=RIDGES_FOLDED,
+    smoothing_sources=SMOOTHING_SOURCES,
     source_overrides=SOURCE_OVERRIDES,
 )

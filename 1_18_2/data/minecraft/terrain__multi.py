@@ -116,16 +116,58 @@ SPLINE_SOURCES = {
     RIDGES_FOLDED: SPLINE_DIR / 'ridges_folded.json',
 }
 
-if tuning.RELIEF_FACTOR != 1.0:
+# Baselines of the shifted copies of the factor box. The three axes come from
+# the vanilla directory like their main files; the folded copy only exists when
+# the relief knob switches `factor` to the transcribed tree, which spells the
+# folded value as a reference.
+SMOOTHING_BASELINES = {
+    axis: VANILLA_DIR / worldgen.smoothing_baseline_name(axis)
+    for axis in ('continents', 'erosion', 'ridges')
+}
+EXTRA_SOURCES = {}
+
+smoothing = tuning.FACTOR_SMOOTHING_RADIUS > 0
+if smoothing:
     TARGETS.append(FACTOR)
-    PATCHERS[FACTOR] = worldgen.relief_above_one(tuning.RELIEF_FACTOR)
+    PATCHERS[FACTOR] = worldgen.smoothed_factor(
+        radius=tuning.FACTOR_SMOOTHING_RADIUS,
+        relief_factor=tuning.RELIEF_FACTOR,
+        # With the relief knob on, `factor` comes from the transcribed tree,
+        # which is a bare spline: there is no node left to read the operand
+        # spelling from, and 1.18.2 predates the `left`/`right` rename.
+        binary_keys=('argument1', 'argument2')
+        if tuning.RELIEF_FACTOR != 1.0 else None,
+    )
+
+if tuning.RELIEF_FACTOR != 1.0:
+    if not smoothing:
+        TARGETS.append(FACTOR)
+        PATCHERS[FACTOR] = worldgen.relief_above_one(tuning.RELIEF_FACTOR)
     SPLINE_SOURCES[FACTOR] = SPLINE_DIR / 'factor.json'
+    if smoothing:
+        SMOOTHING_BASELINES[worldgen.SMOOTHING_FOLDED] = (
+            SPLINE_DIR / 'ridges_folded.json')
+
+if smoothing:
+    copies = worldgen.smoothing_targets(
+        radius=tuning.FACTOR_SMOOTHING_RADIUS,
+        include_ridges_folded=worldgen.SMOOTHING_FOLDED in SMOOTHING_BASELINES,
+    )
+    for target, (axis, name, dx, dz) in copies.items():
+        TARGETS.append(target)
+        EXTRA_SOURCES[target] = SMOOTHING_BASELINES[axis]
+        if axis == worldgen.SMOOTHING_FOLDED:
+            PATCHERS[target] = worldgen.shifted_ridges_folded(name=name)
+        else:
+            PATCHERS[target] = worldgen.shifted_axis(
+                xz_scale=tuning.XZ_SCALE_OVERWORLD, dx=dx, dz=dz)
 
 SOURCES = {
     target: VANILLA_DIR / worldgen.source_name(target)
     for target in TARGETS
-    if target not in SPLINE_SOURCES
+    if target not in SPLINE_SOURCES and target not in EXTRA_SOURCES
 }
 SOURCES.update(SPLINE_SOURCES)
+SOURCES.update(EXTRA_SOURCES)
 
 reference_file, process_single, process_multi = dispatch.make(SOURCES, PATCHERS)
