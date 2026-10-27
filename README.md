@@ -30,6 +30,7 @@ Build every pack with `python build.py`; the zips are written to `build/`.
 - Land above sea level is multiplied by 0.45, so mountains are about half as tall and their slopes gentler.
 - Oceans, coasts and plains keep their vanilla heights, and the sea level does not move.
 - Underground biome layers sit slightly closer to the surface.
+- Narrower biomes make the terrain stiffen into isolated pillars up to 60 blocks higher than everything around them. The slope factor is averaged over the neighbouring 3x3 quarts to remove them; biomes are unaffected. Reported by Hackerrouter.
 - 1.18.2 and later only.
 
 ### Structures
@@ -84,3 +85,4 @@ This is a limit of the version, not of the pack: before 1.19 a dimension carries
 ## Credits
 
 - Bingo game mode and the original tuning baseline: [Minecraft Bingo by lorgon111](https://www.youtube.com/watch?v=x-udqNYXBJw).
+- Factor-smoothing method to reduce terrain pillars from narrowed biomes: Hackerrouter(Minecraft Player ID).
